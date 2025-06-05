@@ -1,0 +1,98 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>eabfbde0-d5be-4229-a8b3-7294266aafa5</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>
+    </StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <Name>Multimodal_AUV</Name>
+    <RootNamespace>Multimodal_AUV</RootNamespace>
+    <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
+    <TestFramework>unittest</TestFramework>
+    <UnitTestPattern>*.py</UnitTestPattern>
+    <UnitTestRootDirectory>.</UnitTestRootDirectory>
+    <IsWindowsApplication>False</IsWindowsApplication>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Multimodal_AUV\config\paths.py" />
+    <Compile Include="Multimodal_AUV\config\__init__.py" />
+    <Compile Include="Multimodal_AUV\data\datasets.py" />
+    <Compile Include="Multimodal_AUV\data\loaders.py" />
+    <Compile Include="Multimodal_AUV\data\__init__.py" />
+    <Compile Include="Multimodal_AUV\main.py" />
+    <Compile Include="Multimodal_AUV\inference\predictors.py" />
+    <Compile Include="Multimodal_AUV\inference\__init__.py" />
+    <Compile Include="Multimodal_AUV\models\base_models.py" />
+    <Compile Include="Multimodal_AUV\models\model_utils.py" />
+    <Compile Include="Multimodal_AUV\models\__init__.py" />
+    <Compile Include="Multimodal_AUV\__init__.py" />
+    <Compile Include="Multimodal_AUV\train\checkpointing.py" />
+    <Compile Include="Multimodal_AUV\train\loop_utils.py" />
+    <Compile Include="Multimodal_AUV\train\multimodal.py" />
+    <Compile Include="Multimodal_AUV\train\unimodal.py" />
+    <Compile Include="Multimodal_AUV\train\__init__.py" />
+    <Compile Include="Multimodal_AUV\utils\device.py" />
+    <Compile Include="Multimodal_AUV\utils\__init__.py" />
+    <Compile Include="tests\__init__.py" />
+    <Compile Include="tests\test_data.py" />
+    <Compile Include="tests\test_model.py" />
+    <Compile Include="tests\test_train.py" />
+    <Compile Include="tests\test_utils.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Multimodal_AUV\config\" />
+    <Folder Include="Multimodal_AUV\" />
+    <Folder Include="tests\" />
+    <Folder Include="Multimodal_AUV\utils\" />
+    <Folder Include="Multimodal_AUV\train\" />
+    <Folder Include="Multimodal_AUV\inference\" />
+    <Folder Include="Multimodal_AUV\models\" />
+    <Folder Include="Multimodal_AUV\data\" />
+    <Folder Include="scripts\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Multimodal_AUV\inference\inference_data.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Interpreter Include="..\env\">
+      <Id>env1</Id>
+      <Version>0.0</Version>
+      <Description>env (Python 3.13 (64-bit))</Description>
+      <InterpreterPath>Scripts\python.exe</InterpreterPath>
+      <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
+      <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
+      <Architecture>X64</Architecture>
+    </Interpreter>
+    <Interpreter Include="env\">
+      <Id>env</Id>
+      <Version>0.0</Version>
+      <Description>env (Python 3.13 (64-bit))</Description>
+      <InterpreterPath>Scripts\python.exe</InterpreterPath>
+      <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
+      <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
+      <Architecture>X64</Architecture>
+    </Interpreter>
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+  <!-- Uncomment the CoreCompile target to enable the Build command in
+       Visual Studio and specify your pre- and post-build commands in
+       the BeforeBuild and AfterBuild targets below. -->
+  <!--<Target Name="CoreCompile" />-->
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+</Project>
