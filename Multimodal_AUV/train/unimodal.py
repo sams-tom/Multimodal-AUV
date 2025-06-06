@@ -7,7 +7,14 @@ import os
 import csv
 from typing import Optional
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
-from checkpointing import save_model
+from Multimodal_AUV.train.checkpointing import save_model
+import matplotlib
+matplotlib.use('Agg') # This must be called *before* importing matplotlib.pyplot
+import matplotlib.pyplot as plt
+import numpy as np
+# Try to set a generic sans-serif font that is commonly available
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Helvetica', 'Verdana']
 
 def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, total_num_epochs: int, num_mc: int,sum_writer: SummaryWriter,
           device: torch.device, model_type: str = "image", csv_path: str = "", patch_type: Optional[str] = None):
@@ -143,7 +150,7 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
                 #Get the correct predictions and total number of units
                 correct += (predicted == labels).sum().item()
                 total += labels.size(0)
-                sum_writer.add_scalar("Loss/train", loss, batch)
+                sum_writer.add_scalar("Loss/train", loss, i)
 
             #Estimate the train accuracy, loss and learnign rate
             train_accuracy = correct / total
@@ -160,8 +167,8 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
 
     except:
         save_model(model, csv_path, model_type)
-        logging.error(f"Error at epoch {epoch}, batch {batch}: {str(e)}", exc_info=True)
-
+        logging.error(f"Error at epoch {epoch}", exc_info=True)
+        train_accuracy, train_loss= 0.0, 0.0
     return train_accuracy, train_loss
 
 
@@ -323,5 +330,6 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
             ])
     except:
             save_model(model, csv_path, model_type)
-            logging.error(f"Error at epoch {epoch}, batch {batch}: {str(e)}", exc_info=True)
+            logging.error(f"Error at epoch {epoch}", exc_info=True)
+            accuracy =0.0
     return accuracy

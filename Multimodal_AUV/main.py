@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any
 import datetime
 import os
+import sys
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from models.model_utils import define_models, define_optimizers_and_schedulers
@@ -174,3 +175,57 @@ def main(
         model_type="multimodal"
     )
     logging.info("Final inference complete. Results saved.")
+if __name__ == "__main__":
+    root_dir, models_dir, strangford_dir, mulroy_dir, device, device_multimodal, device_multimodal2 = setup_environment_and_devices()
+
+    const_bnn_prior_parameters = {
+        "prior_mu": 0.0,
+        "prior_sigma": 1.0,
+        "posterior_mu_init": 0.0,
+        "posterior_rho_init": -3.0,
+        "type": "Reparameterization",
+        "moped_enable": True,
+        "moped_delta": 0.1,
+    }
+    model_paths = {
+    "image": os.path.join(models_dir, "bayesian_model_type:image.pth"),
+    "channels": os.path.join(models_dir, "bayesian_model_type:channels.pth"),
+    "sss": os.path.join(models_dir, "bayesian_model_type:sss.pth"),
+    "multimodal": os.path.join(models_dir, "_bayesian_model_type:multimodal.pth")
+    }
+    multimodal_model_path = os.path.join(models_dir, "teacher_model_epoch_19.pth")
+
+    optimizer_params = {
+        "image": {"lr": 1e-5},
+        "channels": {"lr": 0.01},
+        "sss": {"lr": 1e-5},
+        "multimodal_model": {"lr": 5e-5}
+    }
+
+    scheduler_params = {
+        "image_model": {"step_size": 7, "gamma": 0.1},
+        "channels_model": {"step_size": 5, "gamma": 0.5},
+        "sss_model": {"step_size": 7, "gamma": 0.7},
+        "multimodal_model": {"step_size": 7, "gamma": 0.752}
+    }
+
+    training_params = {
+        "num_epochs_unimodal": 20,
+        "num_epochs_multimodal": 20,
+        "num_mc":5,
+        "channel_patch_base": "patch_30_channel",
+        "sss_patch_base": "patch_30_sss",
+        "channel_patch_types": ["patch_2_channel", "patch_5_channel", "patch_10_channel", "patch_30_channel", "patch_50_channel"],
+        "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
+        "batch_size_unimodal" : 1,
+        "batch_size_multimodal" : 1
+    }
+
+    main(
+        const_bnn_prior_parameters,
+        model_paths,
+        multimodal_model_path,
+        optimizer_params,
+        scheduler_params,
+        training_params
+    )

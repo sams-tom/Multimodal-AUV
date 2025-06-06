@@ -12,7 +12,7 @@ from Multimodal_AUV.utils.device import move_model_to_device, move_models_to_dev
 
 class TestSetupEnvironmentAndDevices(unittest.TestCase):
 
-    @patch('ml_module.config.paths.get_environment_paths')
+    @patch('Multimodal_AUV.config.paths.get_environment_paths')
     @patch('torch.cuda.is_available')
     @patch('torch.cuda.device_count')
     def test_returns_cpu_device_when_cuda_not_available(self, mock_device_count, mock_is_available, mock_get_paths):
@@ -27,10 +27,10 @@ class TestSetupEnvironmentAndDevices(unittest.TestCase):
         self.assertEqual(strangford_dir, '/strangford')
         self.assertEqual(mulroy_dir, '/mulroy')
 
-        self.assertEqual(len(devices), torch.cuda.device_count())
+        self.assertEqual(len(devices), 1)
         self.assertEqual(devices[0], torch.device('cpu') or torch.device('cuda'))
 
-    @patch('ml_module.config.paths.get_environment_paths')
+    @patch('Multimodal_AUV.config.paths.get_environment_paths')
     @patch('torch.cuda.is_available')
     def test_force_cpu_overrides_cuda(self, mock_is_available, mock_get_paths):
         mock_get_paths.return_value = ('/root', '/models', '/strangford', '/mulroy')
@@ -65,7 +65,7 @@ class TestDeviceUtils(unittest.TestCase):
     def test_move_model_to_device_multiple_gpus(self, mock_dataparallel):
         device = torch.device('cuda:0')
         mock_dataparallel.return_value = 'wrapped_model'
-        if torch.cuda.count_device > 1:
+        if torch.cuda.device_count() > 1:
             device_ids = [0, 1]
             moved_model = move_model_to_device(self.model, device, device_ids=device_ids)
             # Should wrap model in DataParallel and return it
@@ -82,26 +82,42 @@ class TestDeviceUtils(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             move_model_to_device(bad_model, torch.device('cpu'))
 
-    @patch('ml_module.utils.device.move_model_to_device')
-    def test_move_models_to_device(self, mock_move_model):
-        # Setup mock to just return the model given
+    @patch('torch.cuda.device_count', return_value=2)
+    @patch('Multimodal_AUV.utils.device.move_model_to_device')
+    def test_move_models_to_device(self, mock_move_model, mock_device_count):
         mock_move_model.side_effect = lambda m, d, device_ids=None: f"{m}_moved"
 
         models_dict = {
             "image_model": "image_model",
             "multimodal_model": "multimodal_model",
-            "channels_model": None  # Should skip
+            "channels_model": None
         }
         devices = [torch.device('cuda:0'), torch.device('cuda:1')]
 
         moved = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
 
-        # multimodal_model should be moved with device_ids [0,1]
-        if torch.cuda.count_device > 1:
-            mock_move_model.assert_any_call("multimodal_model", devices[0], device_ids=[0,1])
-        # image_model moved without device_ids
-        mock_move_model.assert_any_call("image_model", devices[0], device_ids=None)
-        self.assertEqual(moved["channels_model"], None)
+        print("Calls to move_model_to_device:", mock_move_model.mock_calls)
+
+        calls = mock_move_model.mock_calls
+
+        found_multimodal_call = any(
+            call[1][0] == "multimodal_model" and
+            str(call[1][1]) == str(devices[0]) and
+            len(call[1]) > 2 and
+            call[1][2] == [0, 1]
+            for call in calls
+        )
+        self.assertTrue(found_multimodal_call, "move_model_to_device not called correctly for multimodal_model with device_ids=[0,1]")
+
+        found_image_model_call = any(
+            call[1][0] == "image_model" and
+            str(call[1][1]) == str(devices[0]) and
+            (len(call[1]) < 3 or call[1][2] is None)
+            for call in calls
+        )
+        self.assertTrue(found_image_model_call, "move_model_to_device not called correctly for image_model without device_ids")
+
+        self.assertIsNone(moved["channels_model"])
         self.assertEqual(moved["image_model"], "image_model_moved")
         self.assertEqual(moved["multimodal_model"], "multimodal_model_moved")
 

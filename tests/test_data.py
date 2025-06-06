@@ -4,46 +4,40 @@ import os
 import numpy as np
 from PIL import Image
 import torch
+import io
 from torch.utils.data import DataLoader
 from Multimodal_AUV.data.datasets import CustomImageDataset_1, CustomImageDataset
 from Multimodal_AUV.data.loaders import split_dataset, prepare_datasets_and_loaders
 
 class Test_CustomImageDataset1(unittest.TestCase):
 
+    @patch("glob.glob")
     @patch("os.listdir")
     @patch("os.path.isdir")
     @patch("os.path.exists")
     @patch("PIL.Image.open")
-    def test_load_data_skips_missing_files(self, mock_open_img, mock_exists, mock_isdir, mock_listdir):
-        # Setup mocks for directories and files
-        mock_listdir.side_effect = lambda d: ["folder1"] if d == "root_dir" else ["Frame001.jpg", "SSS_image.png", "combined_rgb_bathymetry.jpg"]
+    def test_load_data_skips_missing_files(self, mock_open_img, mock_exists, mock_isdir, mock_listdir, mock_glob):
+        # Mock folder structure
+        mock_listdir.side_effect = lambda d: ["folder1"] if d == "root_dir" else [
+            "Frame001.jpg", "SSS_image.png", "combined_rgb_bathymetry.jpg"
+        ]
         mock_isdir.return_value = True
-        mock_exists.side_effect = lambda path: True if "Frame001" in path or "SSS_image" in path or "combined_rgb_bathymetry" in path else False
+        mock_exists.side_effect = lambda path: True
+        mock_glob.return_value = ["root_dir/folder1/Frame001.jpg"]
 
-        # Mock image open and return an array with non-zero sum (valid image)
-        mock_img = MagicMock()
-        mock_img.__enter__.return_value = mock_img
-        mock_img.__exit__.return_value = None
-        mock_img.convert.return_value = mock_img
-        mock_img.size = (512, 512)
-        mock_img.mode = 'RGB'
-        mock_img_array = np.ones((512,512,3), dtype=np.uint8)
-        mock_img_array.sum = lambda : 1
-        mock_img.__array__ = lambda *a: mock_img_array
-
-        mock_open_img.return_value = mock_img
+        # Return a real image object
+        real_img = Image.fromarray((np.ones((512, 512, 3)) * 255).astype(np.uint8))  # RGB white image
+        mock_open_img.return_value = real_img
 
         dataset = CustomImageDataset_1("root_dir")
 
         self.assertEqual(len(dataset), 1)
-        sample = dataset[0]
-        # Check that main_image, channel_image, sss_image and image_name returned
-        self.assertEqual(len(sample), 4)
-        self.assertIsInstance(sample[0], torch.Tensor)  # main_image tensor
-        self.assertIsInstance(sample[1], torch.Tensor)  # channel_image tensor
-        self.assertIsInstance(sample[2], torch.Tensor)  # sss_image tensor
-        self.assertIsInstance(sample[3], str)  # image_name string
 
+        sample = dataset[0]
+        self.assertIsInstance(sample[0], torch.Tensor)
+        self.assertIsInstance(sample[1], torch.Tensor)
+        self.assertIsInstance(sample[2], torch.Tensor)
+        self.assertIsInstance(sample[3], str)
 class Test_CustomImageDataset(unittest.TestCase):
 
     @patch("os.listdir")
@@ -68,7 +62,8 @@ class Test_CustomImageDataset(unittest.TestCase):
         mock_img.__enter__.return_value = mock_img
         mock_img.convert.return_value = mock_img
         mock_img_array = np.ones((512, 512), dtype=np.uint8)
-        mock_img_array.sum = lambda: 1
+        mock_img_array = MagicMock()
+        mock_img_array.sum.return_value = 1
         mock_img.__array__ = lambda *a: mock_img_array
         mock_open_img.return_value = mock_img
 
@@ -98,26 +93,45 @@ class Test_DatasetUtils(unittest.TestCase):
         self.assertIsInstance(train_ds, torch.utils.data.Subset)
         self.assertIsInstance(test_ds, torch.utils.data.Subset)
 
-    @patch("your_module.CustomImageDataset")
-    @patch("torch.utils.data.DataLoader")
+    @patch("Multimodal_AUV.data.loaders.split_dataset")  
+    @patch("Multimodal_AUV.data.loaders.DataLoader")
     @patch("collections.Counter")
-    def test_prepare_datasets_and_loaders(self, mock_counter, mock_dataloader, mock_dataset):
+    @patch("Multimodal_AUV.data.loaders.CustomImageDataset")
+    def test_prepare_datasets_and_loaders(self, mock_dataset, mock_counter, mock_dataloader, mock_split):
+        # Mock dataset instance
         mock_dataset_instance = MagicMock()
-        mock_dataset_instance.labels = [0,1,1,0]
-        mock_dataset_instance.label_encoder.classes_ = ["class0","class1"]
+        mock_dataset_instance.labels = [0, 1, 1, 0]
+        mock_dataset_instance.label_encoder.classes_ = np.array(["class0", "class1"])
         mock_dataset.return_value = mock_dataset_instance
 
-        # Counter mock returns a dict-like
-        mock_counter.return_value = {0:2, 1:2}
+        # Mock Counter to behave like a dict
+        mock_counter.return_value = {0: 2, 1: 2}
 
-        # DataLoader returns a mock object
+        # Mock DataLoader to just return a string placeholder
         mock_dataloader.return_value = "dataloader"
 
+        # Mock split_dataset to return two datasets
+        mock_train_dataset = MagicMock()
+        mock_test_dataset = MagicMock()
+        mock_split.return_value = (mock_train_dataset, mock_test_dataset)
+
+        # Call the function
         result = prepare_datasets_and_loaders("root_dir", 4, 8)
-        self.assertEqual(len(result), 6)
+
+        # Unpack results
         train_loader, test_loader, train_loader_multi, test_loader_multi, num_classes, dataset = result
+
+        # Assertions
+        self.assertEqual(len(result), 6)
         self.assertEqual(num_classes, 2)
         self.assertEqual(dataset, mock_dataset_instance)
 
-if __name__ == "__main__":
-    unittest.main()
+        # DataLoader called 4 times: train/test unimodal & multimodal
+        self.assertEqual(mock_dataloader.call_count, 4)
+
+        # Check that DataLoader was called with correct datasets
+        calls = mock_dataloader.call_args_list
+        self.assertIn(mock_train_dataset, calls[0][0])  # train_loader
+        self.assertIn(mock_test_dataset, calls[1][0])   # test_loader
+        self.assertIn(mock_train_dataset, calls[2][0])  # train_loader_multimodal
+        self.assertIn(mock_test_dataset, calls[3][0])   # test_loader_multimodal

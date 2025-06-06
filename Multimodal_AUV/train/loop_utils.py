@@ -4,8 +4,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
-from unimodal import train_unimodal_model, evaluate_unimodal_model 
-from multimodal import train_multimodal_model, evaluate_multimodal_model
+from Multimodal_AUV.train.unimodal import train_unimodal_model, evaluate_unimodal_model 
+from Multimodal_AUV.train.multimodal import train_multimodal_model, evaluate_multimodal_model
 import os
 from typing import Any , Optional, Dict, Tuple
 
@@ -44,9 +44,9 @@ def define_optimizers_and_schedulers(
 
     # 4. Build optimizers
     optimizers = {
-        "image_model": optim.Adam(models_dict["image_model"].parameters(), **optimizer_params["image"]),
-        "channels_model": optim.Adam(models_dict["channels_model"].parameters(), **optimizer_params["channels"]),
-        "sss_model": optim.Adam(models_dict["sss_model"].parameters(), **optimizer_params["sss"]),
+        "image_model": optim.Adam(models_dict["image_model"].parameters(), **optimizer_params["image_model"]),
+        "channels_model": optim.Adam(models_dict["channels_model"].parameters(), **optimizer_params["channels_model"]),
+        "sss_model": optim.Adam(models_dict["sss_model"].parameters(), **optimizer_params["sss_model"]),
         "multimodal_model": optim.Adam(
             list(models_dict["multimodal_model"].parameters()) +
             list(models_dict["image_model_feat"].parameters()) +
@@ -141,9 +141,10 @@ def train_and_evaluate_unimodal_model(
             num_mc=num_mc,
             device=device,
             model_type=model_name,
-            csv_path=os.path.join(save_dir, f"{model_name}.csv")
+            csv_path=os.path.join(save_dir, f"{model_name}.csv"),
+            sum_writer=sum_writer
         )
-        scheduler.step()
+        
 
         logging.debug(f"Epoch {epoch}/{num_epochs} - Evaluation")
         val_accuracy = evaluate_unimodal_model(
@@ -154,8 +155,9 @@ def train_and_evaluate_unimodal_model(
             total_num_epochs=num_epochs,
             num_mc=num_mc,
             model_type=model_name,
-            csv_path=os.path.join(save_dir, f"{model_name}_evaluate.csv")
+            csv_path=os.path.join(save_dir, f"{model_name}_evaluate.csv"),
         )
+        scheduler.step()
         sum_writer.add_scalar("train/loss/epoch", train_loss, epoch)
         sum_writer.add_scalar("val/accuracy/epoch", val_accuracy, epoch)
 
@@ -224,12 +226,13 @@ def train_and_evaluate_multimodal_model(
             num_mc=num_mc,
             channel_patch_type=channel_patch_type,
             sss_patch_type=sss_patch_type,
-            csv_path=csv_path 
+            csv_path=csv_path,
+            sum_writer=sum_writer
         )
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Training complete.")
 
         lr_scheduler.step()
-        val_accuracy = multimodal_evaluate_model(
+        val_accuracy = evaluate_multimodal_model(
             multimodal_model=multimodal_model,
             dataloader=test_loader,
             device=device,

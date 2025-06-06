@@ -12,12 +12,21 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any
 import os
-
+from unittest import mock  
+from unittest.mock import patch, MagicMock  
 # Adjust the imports to match your project structure
 from Multimodal_AUV.models.model_utils import define_models
-from bayesian_torch import bnn_linear_layer, bnn_conv_layer, bnn_lstm_layer  
+from bayesian_torch.models.dnn_to_bnn import bnn_linear_layer, bnn_conv_layer, bnn_lstm_layer
+class DummyFeatureExtractor(nn.Module):
+    def __init__(self, output_size=128):
+        super().__init__()
+        self.output_size = output_size
+    def forward(self, x):
+        batch_size = x.shape[0]
+        # Return dummy tensor of shape (batch_size, output_size)
+        return torch.ones(batch_size, self.output_size)
 
-class TestModels(unittest.TestCase):
+class Test_Models(unittest.TestCase):
     def test_resnet50custom_output_shape(self):
         model = ResNet50Custom(input_channels=3, num_classes=10)
         dummy_input = torch.randn(1, 3, 224, 224)
@@ -33,7 +42,7 @@ class TestModels(unittest.TestCase):
 
 
     def test_multimodal_model_forward_pass(self):
-        dummy_feat = nn.Identity()
+        dummy_feat = DummyFeatureExtractor(output_size=128)
         model = MultiModalModel(dummy_feat, dummy_feat, dummy_feat, num_classes=5)
 
         x = torch.randn(2, 3, 224, 224)  # image
@@ -61,28 +70,28 @@ class TestModels(unittest.TestCase):
         assert model.conv1.in_channels == 1
 
 
-    def test_load_models(self, tmp_path):
-        # Save dummy state dicts for testing
-        dummy_model = resnet50(weights=None)
-        dummy_model.fc = nn.Identity()  # to match feature extractor structure
-        dummy_path = tmp_path / "dummy_model.pth"
-        torch.save(dummy_model.state_dict(), dummy_path)
+    def test_load_models(self):
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                dummy_model = resnet50(weights=None)
+                dummy_model.fc = nn.Identity()
+                dummy_path = os.path.join(tmpdirname, "dummy_model.pth")
+                torch.save(dummy_model.state_dict(), dummy_path)
 
-        model_paths = {
-            "image": str(dummy_path),
-            "channels": str(dummy_path),
-            "sss": str(dummy_path)
-        }
+                model_paths = {
+                    "image": dummy_path,
+                    "channels": dummy_path,
+                    "sss": dummy_path
+                }
 
-        device = torch.device("cpu")
-        img_model, chan_model, sss_model = load_models(model_paths, device, num_classes=10)
+                device = torch.device("cpu")
+                img_model, chan_model, sss_model = load_models(model_paths, device, num_classes=10)
 
-        assert isinstance(img_model, nn.Module)
-        assert isinstance(chan_model, nn.Module)
-        assert isinstance(sss_model, nn.Module)
+                self.assertIsInstance(img_model, nn.Module)
+                self.assertIsInstance(chan_model, nn.Module)
+                self.assertIsInstance(sss_model, nn.Module)
 
 
-    @patch("Multimodal_AUV.models.model_utils.dnn_to_bnn")
+    @mock.patch("Multimodal_AUV.models.model_utils.dnn_to_bnn")
     def test_define_models_with_mocked_bnn(self, mock_dnn_to_bnn):
         # Mock the dnn_to_bnn function to do nothing
         mock_dnn_to_bnn.side_effect = lambda model, const_bnn_prior_parameters: None
@@ -103,14 +112,21 @@ class TestModels(unittest.TestCase):
         self.assertIsInstance(models["multimodal_model"], nn.Module)
 
 
-    class TestDefineModelsBNN(unittest.TestCase):
+class Test_DefineModelsBNN(unittest.TestCase):
         def setUp(self):
             self.device = torch.device("cpu")
             self.num_classes = 3
             self.const_bnn_prior_parameters = {
-                "prior_mu": 0.0,
-                "prior_sigma": 0.1,
-            }
+              
+                    "prior_mu": 0.0,
+                    "prior_sigma": 1.0,
+                    "posterior_mu_init": 0.0,
+                    "posterior_rho_init": -3.0,
+                    "type": "Reparameterization",
+                    "moped_enable": True,
+                    "moped_delta": 0.1,
+                }
+         
             self.model_paths = {
                 "image": "dummy_image.pth",
                 "channels": "dummy_channels.pth",
@@ -129,9 +145,9 @@ class TestModels(unittest.TestCase):
                         return False
             return True
 
-        @mock.patch("ml_module.models.define.load_models")
+
+        @mock.patch("Multimodal_AUV.models.model_utils.load_models")
         def test_define_models_returns_all_bayesian(self, mock_load_models):
-            # Dummy feature extractors to be used by mock
             dummy_feat = nn.Sequential(
                 nn.Conv2d(3, 8, kernel_size=3),
                 nn.ReLU(),
@@ -147,9 +163,7 @@ class TestModels(unittest.TestCase):
                 const_bnn_prior_parameters=self.const_bnn_prior_parameters,
             )
 
-            # Check all returned models are fully Bayesian
             for name, model in models.items():
                 with self.subTest(model_name=name):
                     self.assertTrue(self.is_bayesian_model(model), f"{name} is not fully Bayesian")
-
 

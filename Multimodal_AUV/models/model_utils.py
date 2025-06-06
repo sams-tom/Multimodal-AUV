@@ -3,9 +3,9 @@ import torch.nn as nn
 from torchvision.models import resnet50, ResNet50_Weights
 from typing import Dict, Any, Tuple
 import logging
-from bayesian_torch import dnn_to_bnn
+from bayesian_torch.models.dnn_to_bnn import dnn_to_bnn
 import os
-from base_models import ResNet50Custom, MultiModalModel, Identity
+from Multimodal_AUV.models.base_models import ResNet50Custom, MultiModalModel, Identity
 
 def define_models(
     model_paths: Dict[str, str],
@@ -23,15 +23,16 @@ def define_models(
 
         logging.info("Loading pretrained models as feature extractors.")
 
-        image_model_feat, channels_model_feat, sss_model_feat = load_models(
-            model_paths, device, num_classes
-        )
-        multimodal_model = MultiModalModel(image_model_feat, channels_model_feat, sss_model_feat, num_classes)
-
         logging.info("Converting models to Bayesian versions.")
         dnn_to_bnn(image_model, const_bnn_prior_parameters)
         dnn_to_bnn(channels_model, const_bnn_prior_parameters)
         dnn_to_bnn(sss_model, const_bnn_prior_parameters)
+
+        image_model_feat = load_pretrained_resnet_as_feature_extractor()
+        channels_model_feat = load_pretrained_resnet_as_feature_extractor()
+        sss_model_feat = load_pretrained_resnet_as_feature_extractor(input_channels=1)
+
+        multimodal_model = MultiModalModel(image_model_feat, channels_model_feat, sss_model_feat, num_classes)
         dnn_to_bnn(multimodal_model, const_bnn_prior_parameters)
 
         return {

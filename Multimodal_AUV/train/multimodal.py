@@ -7,10 +7,20 @@ import os
 import csv
 from typing import Optional, Tuple
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
-from checkpointing import save_model
+from Multimodal_AUV.train.checkpointing import save_model
 from sklearn.metrics import confusion_matrix , ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import numpy as np
+import torch.nn.functional as F
+import matplotlib
+matplotlib.use('Agg') # This must be called *before* importing matplotlib.pyplot
+import matplotlib.pyplot as plt
+
+# Try to set a generic sans-serif font that is commonly available
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Helvetica', 'Verdana']
+
+
 def train_multimodal_model(
     multimodal_model: nn.Module,
     dataloader: DataLoader,
@@ -144,7 +154,7 @@ def train_multimodal_model(
                 total += labels.size(0)
 
                 #Log training loss
-                sum_writer("Loss/train", loss, batch)
+                sum_writer("Loss/train", loss, i)
 
                 # Print current batch stats
                 logging.info(
@@ -179,12 +189,16 @@ def train_multimodal_model(
         # Free unused GPU memory
         torch.cuda.empty_cache()
     except:
+          # Extract patch sizes from type strings for logging
+            sss_patch_size = sss_patch_type.replace("patch_", "").replace("_sss", "") if sss_patch_type else "none"
+            channel_patch_size = channel_patch_type.replace("patch_", "").replace("_channel", "") if channel_patch_type else "none"
             save_model(multimodal_model, csv_path, f"{model_type}_channel_patch{channel_patch_size}_sss_patch{sss_patch_size}")
-            logging.error(f"Error at epoch {epoch}, batch {batch}: {str(e)}", exc_info=True)
+            logging.error(f"Error at epoch {epoch}", exc_info=True)
+            train_loss, train_accuracy = 0.0, 0.0
     # Return metrics
     return train_loss, train_accuracy
 
-def multimodal_evaluate_model(
+def evaluate_multimodal_model(
     multimodal_model: nn.Module,
     dataloader: DataLoader,
     device: torch.device,
@@ -215,7 +229,7 @@ def multimodal_evaluate_model(
     multimodal_model.train()  # Keep dropout active
 
     file_exists = os.path.isfile(csv_path)
-    try:
+    try: # Outer try
         with open(csv_path, mode='a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if not file_exists:
@@ -269,7 +283,10 @@ def multimodal_evaluate_model(
 
                     outputs_stack = torch.stack(outputs_mc)  # [num_mc, batch, classes]
                     softmax_stack = torch.stack(softmax_outputs_mc)  # [num_mc, batch, classes]
-                    output_mean = torch.mean(outputs_stack, dim=0)  # [batch, classes]
+                    output_mean = torch.mean(outputs_stack, dim=0) # This will be (batch, 1, classes)
+                    if output_mean.ndim == 3 and output_mean.size(1) == 1:
+                        output_mean = output_mean.squeeze(1) # Corrects (batch, 1, classes) to (batch, classes)
+                
                     kl_mean = torch.mean(torch.stack(kl_mc), dim=0) / len(dataloader)
                     kl_scaled = kl_mean * kl_weight
 
@@ -298,21 +315,26 @@ def multimodal_evaluate_model(
             test_loss = total_loss / len(dataloader)
             predictive_uncertainty_mean = np.mean(all_predictive_uncertainty)
             model_uncertainty_mean = np.mean(all_model_uncertainty)
+            fig = None # Initialize fig to None outside the inner try
+            try: # Inner try for plotting
+                # Confusion Matrix
+                cm = confusion_matrix(all_labels, all_predicted) # Consider adding labels=list(range(num_classes))
+                disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+                fig, ax = plt.subplots(figsize=(8, 8))
+                disp.plot(cmap="Blues", ax=ax)
+                plt.title(f"Confusion Matrix for Epoch {epoch}")
 
-            # Confusion Matrix
-            cm = confusion_matrix(all_labels, all_predicted)
-            disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-            fig, ax = plt.subplots(figsize=(8, 8))
-            disp.plot(cmap="Blues", ax=ax)
-            plt.title(f"Confusion Matrix for Epoch {epoch}")
-            logging.info(f"Confusion matrix saved to: {matrix_filename}")
+                parent_path = os.path.dirname(csv_path)
+                matrix_filename = f"conf_matrix_model_{model_type}_chan_{channel_patch_type or '30'}_sss_{sss_patch_type or '30'}.png"
+                plt.savefig(os.path.join(parent_path, matrix_filename))
+                logging.info(f"Confusion matrix saved to: {matrix_filename}")
+            except Exception as e:
+                logging.warning(f"Confusion matrix not saved due to plotting error: {e}", exc_info=True)
+            finally: # Ensures fig is closed regardless of success or failure
+                if fig is not None:
+                    plt.close(fig)
 
-            parent_path = os.path.dirname(csv_path)
-            matrix_filename = f"conf_matrix_model_{model_type}_chan_{channel_patch_type or '30'}_sss_{sss_patch_type or '30'}.png"
-            plt.savefig(os.path.join(parent_path, matrix_filename))
-            plt.close(fig)
-
-            # Log to CSV
+            # Log to CSV - this will now be reached even if plotting fails
             csv_writer.writerow([
                 epoch + 1,
                 model_type,
@@ -325,13 +347,11 @@ def multimodal_evaluate_model(
                 channel_patch_type or "patch_30_channel",
                 sss_patch_type or "patch_30_sss"
             ])
-            # Print out summary of metrics for this epoch
             logging.info(f"Epoch {epoch + 1}: Test Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.4f}, "
-                    f"Total Uncertainty: {predictive_uncertainty_mean:.4f}, "
-                    f"Epistemic: {model_uncertainty_mean:.4f}")
+                         f"Total Uncertainty: {predictive_uncertainty_mean:.4f}, "
+                         f"Epistemic: {model_uncertainty_mean:.4f}")
 
-    except:
-            logging.error(f"Error at epoch {epoch}, batch {batch}: {str(e)}", exc_info=True)
-
+    except Exception as e: # Catch all other exceptions in the outer block
+        logging.error(f"Critical error at epoch {epoch}: {e}", exc_info=True)
+        test_accuracy = 0.0
     return test_accuracy
-    

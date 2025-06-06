@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from Multimodal_AUV.data.datasets import CustomImageDataset
 import os
 from sklearn.preprocessing import LabelEncoder
+from torch.utils.data import DataLoader
 from collections import Counter
 import logging 
 from typing import Tuple
