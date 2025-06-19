@@ -84,8 +84,6 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
             #For each dataloader item extract all the data forms
             for i, batch in enumerate(dataloader):
                 logging.info(f"Train batch {i+1}/{len(dataloader)} - Model: {model_type}")
-                if i ==2:
-                    break
 
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
@@ -218,8 +216,6 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 #For each dataloader item extract all the data forms
             for i, batch in enumerate(dataloader):
                 logging.info(f"Train batch {i+1}/{len(dataloader)} - Model: {model_type}")
-                if i ==2:
-                    break
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
                 labels = batch["label"].long().to(device)
@@ -262,7 +258,6 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 # This is the mean of the logits from MC samples
                 output_mean_logits = torch.mean(torch.stack(outputs_mc_logits), dim=0)
                 # Convert mean logits to probabilities for cross-entropy, if criterion expects it
-       
 
                 # 2. Calculate Average, Scaled KL Loss (for logging/total loss if applicable during eval)
                 scaled_kl = torch.mean(torch.stack(kl_losses), dim=0) / dataloader.batch_size # Assuming batch_size scale

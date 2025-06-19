@@ -80,8 +80,7 @@ def train_multimodal_model(
             # Iterate through the dataloader
             for i, batch in enumerate(dataloader):
                 logging.info(f"Train batch {i+1}/{len(dataloader)} - Model: {model_type}")
-                if i ==2:
-                    break
+
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
                 labels = batch["label"].long().to(device)
@@ -154,7 +153,7 @@ def train_multimodal_model(
                 total += labels.size(0)
 
                 #Log training loss
-                sum_writer("Loss/train", loss, i)
+                sum_writer.add_scalar("Loss/train", loss, i)
 
                 # Print current batch stats
                 logging.info(
@@ -255,8 +254,7 @@ def evaluate_multimodal_model(
             with torch.no_grad():
                 for i, batch in enumerate(dataloader):
                     logging.info(f"Eval, batch: {i+1}/{len(dataloader)}, model: {model_type}")
-                    if i ==2:
-                        break
+
                     inputs = batch["main_image"].to(device)
                     labels = batch["label"].long().to(device)
                     channels_tensor = batch["channel_image"].to(device)

@@ -1,6 +1,6 @@
 import os
 import logging 
-from data import CustomImageDataset_1
+from Multimodal_AUV.data.datasets import CustomImageDataset_1
 from torch.utils.data import DataLoader , ConcatDataset
 def prepare_inference_datasets_and_loaders(dir_1: str, dir_2: str, batch_size: int) -> DataLoader:
     """

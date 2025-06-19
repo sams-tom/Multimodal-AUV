@@ -1,6 +1,9 @@
 import logging
 import csv
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from typing import Optional
 
 def multimodal_predict_and_save(multimodal_model: nn.Module, dataloader: DataLoader, device: torch.device, csv_path: str, num_mc_samples: int=10, sss_patch_type: Optional[str]="", channel_patch_type: Optional[str]="", model_type: str="multimodal"):
     """
@@ -29,7 +32,7 @@ def multimodal_predict_and_save(multimodal_model: nn.Module, dataloader: DataLoa
             header = ["Image Name", "Predicted Class", "Predictive Uncertainty", "Aleatoric Uncertainty"]
             csv_writer.writerow(header)
             logging.info(f"CSV Header written: {header}")
-            logging.info(f"Length of the dataloader: {len(dataloader)}"))  # Helps verify how many batches are expected
+            logging.info(f"Length of the dataloader: {len(dataloader)}") 
 
             with torch.no_grad():  # Disable gradient computation to reduce memory usage and improve inference speed
                 for batch_idx, (inputs, patch_30_channel, patch_30_sss, image_name) in enumerate(dataloader):

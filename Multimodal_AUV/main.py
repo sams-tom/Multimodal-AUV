@@ -5,14 +5,14 @@ import os
 import sys
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from models.model_utils import define_models, define_optimizers_and_schedulers
-from utils.device import move_models_to_device, check_model_devices
-from config.paths import setup_environment_and_devices
-from data.loaders import prepare_datasets_and_loaders
-from train.loop_utils import train_and_evaluate_unimodal_model, run_training_and_evaluation_multimodal
-from train.checkpointing import load_and_fix_state_dict
-from inference.predictors import prepare_inference_datasets_and_loaders
-from inference.inference_data import multimodal_predict_and_save
+from Multimodal_AUV.models.model_utils import define_models
+from Multimodal_AUV.utils.device import move_models_to_device, check_model_devices
+from Multimodal_AUV.config.paths import setup_environment_and_devices
+from Multimodal_AUV.data.loaders import prepare_datasets_and_loaders
+from Multimodal_AUV.train.loop_utils import train_and_evaluate_unimodal_model, train_and_evaluate_multimodal_model, define_optimizers_and_schedulers
+from Multimodal_AUV.train.checkpointing import load_and_fix_state_dict
+from Multimodal_AUV.inference.inference_data import prepare_inference_datasets_and_loaders
+from Multimodal_AUV.inference.predictors import multimodal_predict_and_save
 def main(
     const_bnn_prior_parameters: Dict[str, Any],
     model_paths: Dict[str, str],
@@ -24,7 +24,7 @@ def main(
     
 
     # Setup logging once
-    log_dir = os.path.join("logs", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "training.log")
 
@@ -41,7 +41,7 @@ def main(
     logging.getLogger().addHandler(console)
         
     # Initialize TensorBoard writer
-    tb_log_dir = os.path.join("tensorboard_logs", datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    tb_log_dir = os.path.join("tensorboard_logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     sum_writer = SummaryWriter(log_dir=tb_log_dir)
     sum_writer.add_text("Init", "TensorBoard logging started", 0)
     #In terminal type:
@@ -59,19 +59,19 @@ def main(
     
     # 2. Dataset and DataLoader Preparation
     logging.info("Preparing datasets and data loaders...")
-    unimodal_train_loader, unimodal_test_loader, multimodal_train_loader, multimodal_test_loader, num_classes, dataset = prepare_datasets_and_loaders()
+    unimodal_train_loader, unimodal_test_loader, multimodal_train_loader, multimodal_test_loader, num_classes, dataset = prepare_datasets_and_loaders(root_dir, batch_size_unimodal=training_params["batch_size_unimodal"], batch_size_multimodal=training_params["batch_size_multimodal"])
     logging.info(f"Number of classes: {num_classes} | Dataset split: {len(unimodal_train_loader.dataset)} training samples, {len(unimodal_test_loader.dataset)} test samples")
 
     # 3. Model Definition and Initialization
     logging.info("Defining models...")
-    models_dict = define_models()
+    models_dict = define_models(model_paths, device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models moved to devices.")
     torch.cuda.empty_cache()
 
     # 4. Optimizers and Schedulers
     logging.info("Setting up criterion, optimizers and schedulers...")
-    criterion, optimizers, schedulers = define_optimizers_and_schedulers()
+    criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
 
     # 5. Train Unimodal Models
     model_labels = {
@@ -80,6 +80,7 @@ def main(
         "sss_model": "sss",
     }
     logging.info("Starting training of unimodal models...")
+    print("Starting training of unimodal models...")
     for model_key in ["image_model", "channels_model", "sss_model"]:
        logging.info(f"Training {model_key}...")
        train_and_evaluate_unimodal_model(
@@ -91,7 +92,7 @@ def main(
            scheduler=schedulers[model_key],
            num_epochs=training_params["num_epochs_unimodal"],
            num_mc=training_params["num_mc"],
-           device=devices[0],
+           device=devices[1],
            model_name=model_labels[model_key], 
            save_dir=root_dir,
            sum_writer=sum_writer
@@ -113,7 +114,8 @@ def main(
 
     #7. Run Base Multimodal Training
     logging.info("Starting base multimodal training...")
-    run_training_and_evaluation_multimodal(
+    print("Starting base multimodal training...")
+    train_and_evaluate_multimodal_model(
     train_loader=multimodal_train_loader,
     test_loader=multimodal_test_loader,
     multimodal_model=models_dict["multimodal_model"],
@@ -121,7 +123,7 @@ def main(
     optimizer=optimizers["multimodal_model"],
     lr_scheduler=schedulers["multimodal_model"],
     num_epochs=training_params["num_epochs_multimodal"],
-    device=devices[0],
+    device=devices[1],
     model_type="multimodal",
     channel_patch_type=training_params["channel_patch_base"],
     sss_patch_type=training_params["sss_patch_base"],
@@ -137,29 +139,29 @@ def main(
     #8. Run All Combinations of Multimodal Patch Types
     logging.info("Starting grid search over patch types...")
 
-    for channel_patch_type in training_params["channel_patch_types"]:
-        for sss_patch_type in training_params["sss_patch_types"]:
-            logging.info(f"Training: Channel Patch = {channel_patch_type}, SSS Patch = {sss_patch_type}")
-            print(f"\n--- Starting multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
-            run_training_and_evaluation_multimodal(
-                train_loader = multimodal_train_loader,
-                test_loader = multimodal_test_loader,
-                multimodal_model = models_dict["multimodal_model"],
-                criterion = criterion,
-                optimizer = optimizers["multimodal_model"],
-                lr_scheduler = schedulers["multimodal_model"], 
-                num_epochs = training_params["num_epochs_multimodal"],
-                device = devices[0], 
-                model_type = "multimodal", 
-                channel_patch_type = channel_patch_type,
-                sss_patch_type= sss_patch_type,
-                csv_path=f"{root_dir}multimodal_results_{channel_patch_type}_{sss_patch_type}.csv",
-                num_mc = training_params["num_mc"],
-                sum_writer=sum_writer
-            )
-            logging.info(f"Finished training: Channel = {channel_patch_type}, SSS = {sss_patch_type}")
-            print(f"--- Finished multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
-            torch.cuda.empty_cache()
+    #for channel_patch_type in training_params["channel_patch_types"]:
+    #    for sss_patch_type in training_params["sss_patch_types"]:
+    #        logging.info(f"Training: Channel Patch = {channel_patch_type}, SSS Patch = {sss_patch_type}")
+    #        print(f"\n--- Starting multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
+    #        train_and_evaluate_multimodal_model(
+    #            train_loader = multimodal_train_loader,
+    #            test_loader = multimodal_test_loader,
+    #            multimodal_model = models_dict["multimodal_model"],
+    #            criterion = criterion,
+    #            optimizer = optimizers["multimodal_model"],
+    #            lr_scheduler = schedulers["multimodal_model"], 
+    #            num_epochs = training_params["num_epochs_multimodal"],
+    #            device = devices[1], 
+    #            model_type = "multimodal", 
+    #            channel_patch_type = channel_patch_type,
+    #            sss_patch_type= sss_patch_type,
+    #            csv_path=f"{root_dir}multimodal_results_{channel_patch_type}_{sss_patch_type}.csv",
+    #            num_mc = training_params["num_mc"],
+    #            sum_writer=sum_writer
+    #        )
+    #        logging.info(f"Finished training: Channel = {channel_patch_type}, SSS = {sss_patch_type}")
+    #        print(f"--- Finished multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
+    #        torch.cuda.empty_cache()
 
     # 9. Final Inference
     logging.info("Starting final inference across survey datasets...")
@@ -176,7 +178,7 @@ def main(
     )
     logging.info("Final inference complete. Results saved.")
 if __name__ == "__main__":
-    root_dir, models_dir, strangford_dir, mulroy_dir, device, device_multimodal, device_multimodal2 = setup_environment_and_devices()
+    root_dir, models_dir, strangford_dir, mulroy_dir, device = setup_environment_and_devices()
 
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
@@ -196,9 +198,9 @@ if __name__ == "__main__":
     multimodal_model_path = os.path.join(models_dir, "teacher_model_epoch_19.pth")
 
     optimizer_params = {
-        "image": {"lr": 1e-5},
-        "channels": {"lr": 0.01},
-        "sss": {"lr": 1e-5},
+        "image_model": {"lr": 1e-5},
+        "channels_model": {"lr": 0.01},
+        "sss_model": {"lr": 1e-5},
         "multimodal_model": {"lr": 5e-5}
     }
 
@@ -212,13 +214,13 @@ if __name__ == "__main__":
     training_params = {
         "num_epochs_unimodal": 20,
         "num_epochs_multimodal": 20,
-        "num_mc":5,
+        "num_mc":10,
         "channel_patch_base": "patch_30_channel",
         "sss_patch_base": "patch_30_sss",
         "channel_patch_types": ["patch_2_channel", "patch_5_channel", "patch_10_channel", "patch_30_channel", "patch_50_channel"],
         "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-        "batch_size_unimodal" : 1,
-        "batch_size_multimodal" : 1
+        "batch_size_unimodal" : 8,
+        "batch_size_multimodal" : 4
     }
 
     main(
