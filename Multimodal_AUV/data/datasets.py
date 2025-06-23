@@ -12,9 +12,13 @@ from sklearn.model_selection import train_test_split
 #Load pytorch 
 from torch.utils.data import Dataset, Subset
 from torchvision import transforms
+import torch
 
 #For file renaming
 import re
+
+#For tracking errors
+import logging
 
 class CustomImageDataset_1(Dataset):
     def __init__(self, root_dir, transform=None):
@@ -22,12 +26,12 @@ class CustomImageDataset_1(Dataset):
         self.data = []
         # Define a consistent transform for all images to Tensor
         self.tensor_transform = transforms.Compose([
-            transforms.Resize((512, 512)),
+            transforms.Resize((256, 256)),
             transforms.ToTensor()
         ])
         # Separate transform for the main image with normalization
         self.main_transform = transforms.Compose([
-            transforms.Resize((512, 512)),
+            transforms.Resize((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[62.19902423 / 255.0, 62.31835045 / 255.0, 61.53444229 / 255.0],
                                  std=[41.46890313 / 255.0, 43.39430715 / 255.0, 41.72083641 / 255.0])
@@ -45,7 +49,6 @@ class CustomImageDataset_1(Dataset):
                 continue
 
             processed_folder_count += 1
-            print(f"Processing folder: {folder}")
 
             main_image_path = self._find_main_image(folder_path)
             sss_image_path = self._find_sss_image(folder_path)
@@ -55,13 +58,11 @@ class CustomImageDataset_1(Dataset):
             if (main_image_path is None or
                 sss_image_path is None or
                 channel_path in [None, "empty_image.png"]):
-                print(f"Skipping folder {folder} due to missing or invalid images.")
                 continue
 
             # Verify all files exist on disk
             image_paths = [main_image_path, sss_image_path, channel_path]
             if not all(os.path.exists(p) for p in image_paths):
-                print(f"Skipping folder {folder} due to missing files on disk.")
                 continue
 
             # Verify image content (non-empty)
@@ -70,7 +71,6 @@ class CustomImageDataset_1(Dataset):
                 try:
                     with Image.open(path) as img:
                         if np.array(img).sum() == 0:
-                            print(f"Skipping folder {folder} due to empty image: {path}")
                             is_valid = False
                             break
                 except Exception as e:
@@ -88,17 +88,14 @@ class CustomImageDataset_1(Dataset):
                 'sss_image': sss_image_path,
             })
             successful_load_count += 1
-            print(f"Successfully loaded data from folder: {folder}")
 
-        print(f"Total folders processed: {processed_folder_count}")
-        print(f"Total folders successfully loaded: {successful_load_count}")
+        print(f"Total folders successfully loaded: {successful_load_count} total folders processed: {processed_folder_count}")
 
 
 
     def _find_main_image(self, folder_path):
         matching_files = glob.glob(os.path.join(folder_path, "[fF]rame*.jpg"))
         if not matching_files:
-            print(f"No main image found in {folder_path}")
             return None
         return matching_files[0]
 
@@ -174,9 +171,9 @@ class CustomImageDataset_1(Dataset):
 class CustomImageDataset(Dataset):
     def __init__(self, root_dir, transform=None):
         self.root_dir = root_dir
-        self.data = []
+        self.data_paths = [] # Renamed from 'data' to be more explicit about storing paths
         self.labels = []
-        self.extracted_data = []
+
         self.transform = transforms.Compose([
             transforms.Resize((512, 512)),
             transforms.ToTensor(),
@@ -185,102 +182,156 @@ class CustomImageDataset(Dataset):
             transforms.Resize((512, 512)),
             transforms.ToTensor(),
             transforms.Normalize(
-                mean=[62.19902423 / 255.0, 62.31835045 / 255.0, 61.53444229 / 255.0],
+                mean=[62.19902423 / 255.0, 62.31835042 / 255.0, 61.53444229 / 255.0],
                 std=[41.46890313 / 255.0, 43.39430715 / 255.0, 41.72083641 / 255.0],
             ),
         ])
+
+        # NEW: Collect all unique patch sizes during initialization
+        self.all_discovered_patch_sizes = set()
 
         all_labels = []
         for folder in os.listdir(root_dir):
             folder_path = os.path.join(root_dir, folder)
             if not os.path.isdir(folder_path): continue
 
+            main_image, sss_image = None, None
             try:
-                main_image = glob.glob(os.path.join(folder_path, "*frame*.jpg"))[0]
-                sss_image = max(
-                    [os.path.join(folder_path, f) for f in os.listdir(folder_path)
-                     if "SSS" in f and "patch_" not in f],
-                    key=lambda x: np.count_nonzero(np.array(Image.open(x).convert("L")))
-                )
-            except Exception:
+                main_image = glob.glob(os.path.join(folder_path, "*frame*.jpg"))
+                if not main_image: raise FileNotFoundError("Main image not found")
+                main_image = main_image[0]
+
+                sss_candidates = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
+                                  if "SSS" in f and "patch_" not in f]
+                if not sss_candidates: raise FileNotFoundError("SSS image not found")
+                sss_image = max(sss_candidates, key=lambda x: np.count_nonzero(np.array(Image.open(x).convert("L"))))
+            except Exception as e:
+                logging.debug(f"Skipping folder {folder_path} due to missing main/SSS image: {e}")
                 continue
 
+            label = None
             try:
                 label_files = [f for f in os.listdir(folder_path) if f.endswith(".txt") and not f.startswith("_")]
+                if not label_files: raise FileNotFoundError("Label file not found")
                 label_files.sort(key=lambda x: os.path.getmtime(os.path.join(folder_path, x)), reverse=True)
                 label = os.path.splitext(label_files[0])[0]
-            except:
+            except Exception as e:
+                logging.debug(f"Skipping folder {folder_path} due to missing label: {e}")
                 continue
 
             channel_image = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
-            if not os.path.exists(channel_image): continue
-
-            # Find all patch_*m_combined_bathy.png and corresponding SSS
-            patch_channels = {}
-            patch_sss = {}
-            for file in os.listdir(folder_path):
-                if re.match(r"patch_\d+m_combined_bathy\.png", file):
-                    size = re.search(r"patch_(\d+m)", file).group(1)
-                    patch_channels[size] = os.path.join(folder_path, file)
-                elif re.match(r"patch_\d+m_.*_SSS\.(png|jpg)", file):
-                    size = re.search(r"patch_(\d+m)", file).group(1)
-                    patch_sss[size] = os.path.join(folder_path, file)
-
-            if not patch_channels or not patch_sss:
+            if not os.path.exists(channel_image):
+                logging.debug(f"Skipping folder {folder_path} due to missing channel image.")
                 continue
 
+            patch_channels_found = {}
+            patch_sss_found = {}
+            found_any_patch = False # Track if any patch of any size was found for this sample
+
+            for file in os.listdir(folder_path):
+                channel_match = re.match(r"patch_(\d+m)_combined_bathy\.png", file)
+                sss_match = re.match(r"patch_(\d+m)_.*_SSS\.(png|jpg)", file)
+
+                if channel_match:
+                    size = channel_match.group(1)
+                    patch_channels_found[size] = os.path.join(folder_path, file)
+                    self.all_discovered_patch_sizes.add(size) # Learn the size
+                    found_any_patch = True
+                elif sss_match:
+                    size = sss_match.group(1)
+                    patch_sss_found[size] = os.path.join(folder_path, file)
+                    self.all_discovered_patch_sizes.add(size) # Learn the size
+                    found_any_patch = True
+
+            if not found_any_patch:
+                 logging.debug(f"Skipping folder {folder_path} as no patches were found.")
+                 continue
+
+            # Check for normalised_meta.csv
             extracted_data_path = os.path.join(folder_path, "normalised_meta.csv")
-            if not os.path.exists(extracted_data_path): continue
+            if not os.path.exists(extracted_data_path):
+                logging.debug(f"Skipping folder {folder_path} due to missing normalised_meta.csv.")
+                continue
 
-           
 
-            self.data.append({
+            self.data_paths.append({
                 "main_image": main_image,
                 "channel_image": channel_image,
                 "sss_image": sss_image,
-                "patch_channels": patch_channels,
-                "patch_sss": patch_sss,
+                "patch_channels": patch_channels_found,
+                "patch_sss": patch_sss_found,
             })
             all_labels.append(label)
+
+        if not self.data_paths:
+            raise RuntimeError("No valid data samples found in root_dir. Check your data paths and filters.")
 
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(all_labels)
         self.labels = self.label_encoder.transform(all_labels)
 
+        # Convert discovered patch sizes to a sorted list for consistent ordering
+        self.all_discovered_patch_sizes = sorted(list(self.all_discovered_patch_sizes))
+        logging.info(f"Discovered patch sizes: {self.all_discovered_patch_sizes}")
+
+
     def __len__(self):
-        return len(self.data)
+        return len(self.data_paths)
 
     def __getitem__(self, idx):
-        sample = self.data[idx]
+        sample_paths = self.data_paths[idx]
         label = self.labels[idx]
 
-        with Image.open(sample["main_image"]).convert("RGB") as img:
+        with Image.open(sample_paths["main_image"]).convert("RGB") as img:
             main_img = self.transform_1(img)
 
-        with Image.open(sample["channel_image"]).convert("RGB") as img:
+        with Image.open(sample_paths["channel_image"]).convert("RGB") as img:
             channel_img = self.transform(img)
 
-        with Image.open(sample["sss_image"]).convert("L") as img:
+        with Image.open(sample_paths["sss_image"]).convert("L") as img:
             sss_img = self.transform(img)
 
-        # Load dynamic patches
-        patch_channels_tensor = {}
-        patch_sss_tensor = {}
+        # Define dummy tensors based on your transformations.
+        # These will be used if a specific patch size is missing for a sample.
+        dummy_channel_patch_tensor = torch.zeros(3, 512, 512) # RGB, 512x512
+        dummy_sss_patch_tensor = torch.zeros(1, 512, 512)    # Grayscale, 512x512
 
-        for size, path in sample["patch_channels"].items():
-            with Image.open(path).convert("RGB") as img:
-                patch_channels_tensor[size] = self.transform(img)
+        patch_channels_tensors = {}
+        patch_sss_tensors = {}
 
-        for size, path in sample["patch_sss"].items():
-            with Image.open(path).convert("L") as img:
-                patch_sss_tensor[size] = self.transform(img)
+        # Iterate over ALL discovered patch sizes from the dataset,
+        # ensuring consistency across all __getitem__ calls
+        for size in self.all_discovered_patch_sizes:
+            # Handle channel patches
+            channel_path = sample_paths["patch_channels"].get(size)
+            if channel_path and os.path.exists(channel_path):
+                try:
+                    with Image.open(channel_path).convert("RGB") as img:
+                        patch_channels_tensors[size] = self.transform(img)
+                except Exception as e:
+                    logging.warning(f"Error loading channel patch {channel_path}: {e}. Using dummy tensor.")
+                    patch_channels_tensors[size] = dummy_channel_patch_tensor
+            else:
+                patch_channels_tensors[size] = dummy_channel_patch_tensor
+
+            # Handle SSS patches
+            sss_path = sample_paths["patch_sss"].get(size)
+            if sss_path and os.path.exists(sss_path):
+                try:
+                    with Image.open(sss_path).convert("L") as img:
+                        patch_sss_tensors[size] = self.transform(img)
+                except Exception as e:
+                    logging.warning(f"Error loading SSS patch {sss_path}: {e}. Using dummy tensor.")
+                    patch_sss_tensors[size] = dummy_sss_patch_tensor
+            else:
+                patch_sss_tensors[size] = dummy_sss_patch_tensor
 
         return {
             "main_image": main_img,
             "channel_image": channel_img,
             "sss_image": sss_img,
-            "patch_channels": patch_channels_tensor,
-            "patch_sss": patch_sss_tensor,
+            "patch_channels": patch_channels_tensors, # Now guaranteed to have all discovered sizes
+            "patch_sss": patch_sss_tensors,         # Now guaranteed to have all discovered sizes
             "label": label,
         }
 

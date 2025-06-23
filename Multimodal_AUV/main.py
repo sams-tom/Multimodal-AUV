@@ -19,7 +19,7 @@ def main(
     multimodal_model_path: str,
     optimizer_params: Dict[str, Dict[str, Any]],
     scheduler_params: Dict[str, Dict[str, Any]],
-    training_params: Dict[str, Any],
+    training_params: Dict[str, Any],  root_dir, models_dir, strangford_dir, mulroy_dir, devices
 ):
     
 
@@ -54,9 +54,7 @@ def main(
 
     # 1. Environment and Device Setup
     logging.info("Setting up environment and devices...")
-    root_dir, models_dir, strangford_dir, mulroy_dir, devices = setup_environment_and_devices(print_devices=True)
     logging.info(f"Using devices: {[str(d) for d in devices]}")
-    
     # 2. Dataset and DataLoader Preparation
     logging.info("Preparing datasets and data loaders...")
     unimodal_train_loader, unimodal_test_loader, multimodal_train_loader, multimodal_test_loader, num_classes, dataset = prepare_datasets_and_loaders(root_dir, batch_size_unimodal=training_params["batch_size_unimodal"], batch_size_multimodal=training_params["batch_size_multimodal"])
@@ -82,6 +80,7 @@ def main(
     logging.info("Starting training of unimodal models...")
     print("Starting training of unimodal models...")
     for model_key in ["image_model", "channels_model", "sss_model"]:
+       print(f"training model: {model_key}")
        logging.info(f"Training {model_key}...")
        train_and_evaluate_unimodal_model(
            model=models_dict[model_key],
@@ -123,7 +122,7 @@ def main(
     optimizer=optimizers["multimodal_model"],
     lr_scheduler=schedulers["multimodal_model"],
     num_epochs=training_params["num_epochs_multimodal"],
-    device=devices[1],
+    device=devices[0],
     model_type="multimodal",
     channel_patch_type=training_params["channel_patch_base"],
     sss_patch_type=training_params["sss_patch_base"],
@@ -137,7 +136,7 @@ def main(
     #Check and its running up to here
  
     #8. Run All Combinations of Multimodal Patch Types
-    logging.info("Starting grid search over patch types...")
+    #logging.info("Starting grid search over patch types...")
 
     #for channel_patch_type in training_params["channel_patch_types"]:
     #    for sss_patch_type in training_params["sss_patch_types"]:
@@ -212,14 +211,14 @@ if __name__ == "__main__":
     }
 
     training_params = {
-        "num_epochs_unimodal": 20,
-        "num_epochs_multimodal": 20,
+        "num_epochs_unimodal": 30,
+        "num_epochs_multimodal": 30,
         "num_mc":10,
         "channel_patch_base": "patch_30_channel",
         "sss_patch_base": "patch_30_sss",
         "channel_patch_types": ["patch_2_channel", "patch_5_channel", "patch_10_channel", "patch_30_channel", "patch_50_channel"],
         "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-        "batch_size_unimodal" : 8,
+        "batch_size_unimodal" : 6,
         "batch_size_multimodal" : 4
     }
 
@@ -229,5 +228,5 @@ if __name__ == "__main__":
         multimodal_model_path,
         optimizer_params,
         scheduler_params,
-        training_params
+        training_params,  root_dir, models_dir, strangford_dir, mulroy_dir, device
     )

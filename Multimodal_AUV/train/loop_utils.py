@@ -8,7 +8,7 @@ from Multimodal_AUV.train.unimodal import train_unimodal_model, evaluate_unimoda
 from Multimodal_AUV.train.multimodal import train_multimodal_model, evaluate_multimodal_model
 import os
 from typing import Any , Optional, Dict, Tuple
-
+from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 def define_optimizers_and_schedulers(
     models_dict: Dict[str, nn.Module],
     optimizer_params: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -48,12 +48,10 @@ def define_optimizers_and_schedulers(
         "channels_model": optim.Adam(models_dict["channels_model"].parameters(), **optimizer_params["channels_model"]),
         "sss_model": optim.Adam(models_dict["sss_model"].parameters(), **optimizer_params["sss_model"]),
         "multimodal_model": optim.Adam(
-            list(models_dict["multimodal_model"].parameters()) +
-            list(models_dict["image_model_feat"].parameters()) +
-            list(models_dict["channels_model_feat"].parameters()) +
-            list(models_dict["sss_model_feat"].parameters()),
+            models_dict["multimodal_model"].parameters(), 
             **optimizer_params["multimodal_model"]
         )
+  
     }
 
 
@@ -128,8 +126,7 @@ def train_and_evaluate_unimodal_model(
     logging.info(f"Scheduler: {scheduler.__class__.__name__}")    
     logging.info(f"Training started for unimodal model: {model_name}")
     for epoch in range(1, num_epochs):
-        if epoch ==2 :
-            break
+    
         logging.debug(f"Epoch {epoch}/{num_epochs} - Training")
         train_accuracy, train_loss =train_unimodal_model(
             model=model,

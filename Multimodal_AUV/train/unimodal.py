@@ -56,6 +56,9 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
         The function saves the model state to disk and logs training progress,
         but does not return any value.
     """
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     #Set the model to train 
     model.train()
 

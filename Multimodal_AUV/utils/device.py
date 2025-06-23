@@ -37,8 +37,7 @@ def move_models_to_device(
     """
     try:
         primary_device = devices[0]
-        device_ids = list(range(len(devices))) if use_multigpu_for_multimodal and len(devices) > 1 else None
-
+        device_ids = [d.index for d in devices] if use_multigpu_for_multimodal and len(devices) > 1 else None
         logging.info(f"Moving models to device(s): {devices}")
         for name, model in models_dict.items():
             if model is None:

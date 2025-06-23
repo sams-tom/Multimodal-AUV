@@ -1,7 +1,8 @@
 import os
 import logging
 import torch
-
+import torch.nn as nn
+from typing import Dict, Any, Tuple, Set, List
 
 def save_model(model, csv_path, patch_type):
     """
@@ -42,53 +43,70 @@ def save_model(model, csv_path, patch_type):
     except Exception as e:
         logging.error(f"Error saving model: {e}", exc_info=True)
 
-
-def load_and_fix_state_dict(model, model_path, device):
-        """
-        Loads a model state dictionary from a file and adapts keys to match the given model's keys,
-        handling cases where keys might be prefixed (e.g., from DataParallel models) or shapes don't match.
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            The PyTorch model into which the state dictionary will be loaded.
-        model_path : str
-            Path to the saved state dictionary file.
-        device : torch.device or str
-            Device on which to map the loaded state dictionary.
-
-        Returns
-        -------
-        None
-            Loads the fixed state dictionary into the model.
+def load_and_fix_state_dict(model: nn.Module, model_path: str, device: torch.device) -> Tuple[bool, List[str]]:
+    """
+    Loads a model state dictionary from a file and adapts keys to match the given model's keys.
+    It handles 'module.' prefixes from DataParallel.
     
-        Logs info about loading progress, warnings for skipped keys, and exceptions on size mismatches.
-        """
-        logging.info(f"Loading state dict from: {model_path}")
-        state_dict = torch.load(model_path, map_location=device)
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            name = k
-            if k.startswith('module.model.'):
-                name = k[13:]  # Remove 'module.model.'
-            if name in model.state_dict():
-                new_state_dict[name] = v
-            else:
-                logging.warning(f"Skipping unmatched key: {name}")
+    A single WARNING message is logged globally if any 'module.' prefix stripping occurs.
+    Details of skipped layers are collected and returned for later consolidated reporting.
+    
+    Returns:
+        Tuple[bool, List[str]]: 
+            - bool: True if the model state_dict was successfully loaded, False otherwise.
+            - List[str]: A list of strings, each describing a skipped layer and the reason.
+    """
+    skipped_layers_details: List[str] = [] # Local list to collect skipped layer info
+    my_logger = logging.getLogger('my_silent_logger')
+    my_logger.setLevel(logging.INFO) # Set the level for this logger
 
-        try:
-            model.load_state_dict(new_state_dict, strict=False)
-        except RuntimeError as e:
-            logging.exception("Size mismatch error while loading state_dict.")
-            # Load only the keys that match in shape.
-            final_state_dict = {}
-            model_keys = model.state_dict().keys()
-            for key, value in new_state_dict.items():
-                if key in model_keys:
-                    model_shape = model.state_dict()[key].shape
-                    if value.shape == model_shape:
-                        final_state_dict[key] = value
-                    else:
-                        logging.warning(f"Skipping unmatched key: {name}, due to shape mismatch")
-            model.load_state_dict(final_state_dict, strict=False)
-        logging.info("Model state_dict loaded successfully.")
+    # Add a NullHandler to it. This handler does nothing.
+    my_logger.addHandler(logging.NullHandler())
+
+    if not os.path.exists(model_path):
+        logging.warning(f"Model checkpoint not found at: {model_path}. Skipping load.")
+        return False, skipped_layers_details # Return False and an empty list on failure
+
+    logging.info(f"Attempting to load state dict from: {model_path}")
+    
+    _module_prefix_stripped_in_this_specific_call = False 
+
+    try:
+        state_dict_from_checkpoint = torch.load(model_path, map_location=device)
+        model_state_dict = model.state_dict()
+        new_state_dict_for_load = {}
+        
+        for k_checkpoint, v_checkpoint in state_dict_from_checkpoint.items():
+            k_model = k_checkpoint
+            if k_checkpoint.startswith('module.'):
+                k_model = k_checkpoint[len('module.'):]
+                _module_prefix_stripped_in_this_specific_call = True 
+            
+            if k_model in model_state_dict:
+                if v_checkpoint.shape == model_state_dict[k_model].shape:
+                    new_state_dict_for_load[k_model] = v_checkpoint
+                else:
+                    # Collect details for shape mismatch instead of logging immediately
+                    skipped_layers_details.append(
+                        f"  - Key '{k_checkpoint}' (mapped to '{k_model}') "
+                        f"due to shape mismatch: checkpoint has {v_checkpoint.shape}, "
+                        f"model has {model_state_dict[k_model].shape}"
+                    )
+            else:
+                # Collect details for key not found instead of logging immediately
+                skipped_layers_details.append(
+                    f"  - Key '{k_checkpoint}' (mapped to '{k_model}') "
+                    f"as it is not found in the current model."
+                )
+
+        model.load_state_dict(new_state_dict_for_load, strict=False)
+        
+     
+        logging.info("Model state_dict loaded successfully.") 
+        logging.info(f"Skipped layers: {skipped_layers_details}")
+
+        return True # Return True and the collected details
+
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while loading state_dict for {model_path}: {e}", exc_info=True)
+        return False # Return False and any collected details on error

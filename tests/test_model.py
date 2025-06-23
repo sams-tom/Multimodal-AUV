@@ -166,4 +166,3 @@ class Test_DefineModelsBNN(unittest.TestCase):
             for name, model in models.items():
                 with self.subTest(model_name=name):
                     self.assertTrue(self.is_bayesian_model(model), f"{name} is not fully Bayesian")
-

@@ -139,4 +139,3 @@ class TestDeviceUtils(unittest.TestCase):
             result = check_model_devices(model, expected_device)
         self.assertFalse(result)
         self.assertIn("Param linear.weight is on cpu, expected cuda:0", log.output[0])
-

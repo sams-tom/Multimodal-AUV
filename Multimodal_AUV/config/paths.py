@@ -1,6 +1,7 @@
 import logging
 import torch
 from typing import Tuple, List
+import pynvml
 
 def get_environment_paths() -> Tuple[str, str, str, str]:
     """
@@ -39,6 +40,59 @@ def get_environment_paths() -> Tuple[str, str, str, str]:
     #Return paths
     return root_dir, models_dir, strangford_dir, mulroy_dir
 
+def get_empty_gpus(threshold_mb=1000):
+    """
+    Returns a list of torch.device objects for GPUs with memory usage below a given threshold.
+
+    Args:
+        threshold_mb (int): Maximum allowed memory usage in MiB (Megabytes) for a GPU to be considered "empty".
+
+    Returns:
+        list: A list of torch.device objects (e.g., [torch.device('cuda:0'), torch.device('cuda:2')]).
+              Returns an empty list if no GPUs are available or meet the criteria.
+    """
+    if not torch.cuda.is_available():
+        print("CUDA is not available. No GPUs to check.")
+        return []
+
+    empty_devices = []
+    num_cuda_devices = torch.cuda.device_count()
+
+    try:
+        pynvml.nvmlInit()
+        for i in range(num_cuda_devices):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+            # info.used is in bytes, convert to MiB
+            gpu_memory_used_mib = info.used / (1024 * 1024)
+
+            print(f"GPU {i}: Used Memory = {gpu_memory_used_mib:.2f} MiB / Total Memory = {info.total / (1024 * 1024):.2f} MiB")
+
+            if gpu_memory_used_mib < threshold_mb:
+                empty_devices.append(torch.device(f"cuda:{i}"))
+                print(f"  -> GPU {i} considered empty and added.")
+            else:
+                print(f"  -> GPU {i} is busy (used {gpu_memory_used_mib:.2f} MiB) and skipped.")
+
+    except pynvml.NVMLError as error:
+        print(f"Error accessing NVIDIA GPUs with pynvml: {error}")
+        print("Falling back to only checking torch.cuda.memory_allocated(), which might be less accurate for multi-process scenarios.")
+        # Fallback if pynvml fails (e.g., driver not installed, permissions)
+        for i in range(num_cuda_devices):
+            # This only checks memory allocated by *this* process
+            allocated_by_this_process_mb = torch.cuda.memory_allocated(i) / (1024 * 1024)
+            print(f"GPU {i} (this process allocated): {allocated_by_this_process_mb:.2f} MiB")
+            if allocated_by_this_process_mb < threshold_mb:
+                empty_devices.append(torch.device(f"cuda:{i}"))
+    finally:
+        try:
+            pynvml.nvmlShutdown()
+        except pynvml.NVMLError:
+            pass # Already shut down or never initialized
+
+    return empty_devices
+
 def setup_environment_and_devices(print_devices: bool = False, force_cpu: bool = False) -> Tuple[str, str, str, str, List[torch.device]]:
     """
     Sets up directories and device configurations based on CUDA availability.
@@ -61,13 +115,15 @@ def setup_environment_and_devices(print_devices: bool = False, force_cpu: bool =
     devices = []
 
     if not force_cpu and torch.cuda.is_available():
-        num_cuda_devices = torch.cuda.device_count()
-        devices = [torch.device(f"cuda:{i}") for i in range(num_cuda_devices)]
+        devices = get_empty_gpus(threshold_mb=1000) # You can adjust this threshold
+        if not devices:
+            print("No empty GPUs found or CUDA not available. Falling back to CPU.")
+            devices = [torch.device("cpu")]
+        else:
+            print(f"Selected empty GPUs: {[str(d) for d in devices]}")
     else:
         devices = [torch.device("cpu")]
-
-    if print_devices:
-        for i, d in enumerate(devices):
-            logging.info(f"Model {i} running on {d}")
+        print("Force CPU is enabled. Using CPU.")
 
     return root_dir, models_dir, strangford_dir, mulroy_dir, devices
+
