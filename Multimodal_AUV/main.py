@@ -74,12 +74,12 @@ def main(
     # 5. Train Unimodal Models
     model_labels = {
         "image_model": "image",
-        "channels_model": "channels",
+        "bathy_model": "bathy",
         "sss_model": "sss",
     }
     logging.info("Starting training of unimodal models...")
     print("Starting training of unimodal models...")
-    for model_key in ["image_model", "channels_model", "sss_model"]:
+    for model_key in ["image_model", "bathy_model", "sss_model"]:
        print(f"training model: {model_key}")
        logging.info(f"Training {model_key}...")
        train_and_evaluate_unimodal_model(
@@ -91,9 +91,9 @@ def main(
            scheduler=schedulers[model_key],
            num_epochs=training_params["num_epochs_unimodal"],
            num_mc=training_params["num_mc"],
-           device=devices[1],
+           device=devices[0],
            model_name=model_labels[model_key], 
-           save_dir=root_dir,
+           save_dir=f"{root_dir}csvs/",
            sum_writer=sum_writer
        )
        logging.info(f"Finished training {model_key}.")
@@ -124,9 +124,9 @@ def main(
     num_epochs=training_params["num_epochs_multimodal"],
     device=devices[0],
     model_type="multimodal",
-    channel_patch_type=training_params["channel_patch_base"],
+    bathy_patch_type=training_params["bathy_patch_base"],
     sss_patch_type=training_params["sss_patch_base"],
-    csv_path=f"{root_dir}multimodal_results.csv",
+    csv_path=f"{root_dir}csvs/multimodal_results.csv",
     num_mc=training_params["num_mc"],
     sum_writer=sum_writer
     )
@@ -138,10 +138,10 @@ def main(
     #8. Run All Combinations of Multimodal Patch Types
     #logging.info("Starting grid search over patch types...")
 
-    #for channel_patch_type in training_params["channel_patch_types"]:
+    #for bathy_patch_type in training_params["bathy_patch_types"]:
     #    for sss_patch_type in training_params["sss_patch_types"]:
-    #        logging.info(f"Training: Channel Patch = {channel_patch_type}, SSS Patch = {sss_patch_type}")
-    #        print(f"\n--- Starting multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
+    #        logging.info(f"Training: Bathy Patch = {bathy_patch_type}, SSS Patch = {sss_patch_type}")
+    #        print(f"\n--- Starting multimodal Training for: Bathy: {bathy_patch_type}, SSS: {sss_patch_type} ---")
     #        train_and_evaluate_multimodal_model(
     #            train_loader = multimodal_train_loader,
     #            test_loader = multimodal_test_loader,
@@ -152,14 +152,14 @@ def main(
     #            num_epochs = training_params["num_epochs_multimodal"],
     #            device = devices[1], 
     #            model_type = "multimodal", 
-    #            channel_patch_type = channel_patch_type,
+    #            bathy_patch_type = bathy_patch_type,
     #            sss_patch_type= sss_patch_type,
-    #            csv_path=f"{root_dir}multimodal_results_{channel_patch_type}_{sss_patch_type}.csv",
+    #            csv_path=f"{root_dir}multimodal_results_{bathy_patch_type}_{sss_patch_type}.csv",
     #            num_mc = training_params["num_mc"],
     #            sum_writer=sum_writer
     #        )
-    #        logging.info(f"Finished training: Channel = {channel_patch_type}, SSS = {sss_patch_type}")
-    #        print(f"--- Finished multimodal Training for: Channel: {channel_patch_type}, SSS: {sss_patch_type} ---")
+    #        logging.info(f"Finished training: bathy = {bathy_patch_type}, SSS = {sss_patch_type}")
+    #        print(f"--- Finished multimodal Training for: bathy: {bathy_patch_type}, SSS: {sss_patch_type} ---")
     #        torch.cuda.empty_cache()
 
     # 9. Final Inference
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     }
     model_paths = {
     "image": os.path.join(models_dir, "bayesian_model_type:image.pth"),
-    "channels": os.path.join(models_dir, "bayesian_model_type:channels.pth"),
+    "bathy": os.path.join(models_dir, "bayesian_model_type:bathy.pth"),
     "sss": os.path.join(models_dir, "bayesian_model_type:sss.pth"),
     "multimodal": os.path.join(models_dir, "_bayesian_model_type:multimodal.pth")
     }
@@ -198,14 +198,14 @@ if __name__ == "__main__":
 
     optimizer_params = {
         "image_model": {"lr": 1e-5},
-        "channels_model": {"lr": 0.01},
+        "bathy_model": {"lr": 0.01},
         "sss_model": {"lr": 1e-5},
         "multimodal_model": {"lr": 5e-5}
     }
 
     scheduler_params = {
         "image_model": {"step_size": 7, "gamma": 0.1},
-        "channels_model": {"step_size": 5, "gamma": 0.5},
+        "bathy_model": {"step_size": 5, "gamma": 0.5},
         "sss_model": {"step_size": 7, "gamma": 0.7},
         "multimodal_model": {"step_size": 7, "gamma": 0.752}
     }
@@ -213,12 +213,12 @@ if __name__ == "__main__":
     training_params = {
         "num_epochs_unimodal": 30,
         "num_epochs_multimodal": 30,
-        "num_mc":10,
-        "channel_patch_base": "patch_30_channel",
+        "num_mc":7,
+        "bathy_patch_base": "patch_30_bathy",
         "sss_patch_base": "patch_30_sss",
-        "channel_patch_types": ["patch_2_channel", "patch_5_channel", "patch_10_channel", "patch_30_channel", "patch_50_channel"],
+        "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
         "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-        "batch_size_unimodal" : 6,
+        "batch_size_unimodal" : 8,
         "batch_size_multimodal" : 4
     }
 

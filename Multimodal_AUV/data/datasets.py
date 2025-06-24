@@ -52,16 +52,16 @@ class CustomImageDataset_1(Dataset):
 
             main_image_path = self._find_main_image(folder_path)
             sss_image_path = self._find_sss_image(folder_path)
-            channel_path = self._find_channel_image(folder_path)
+            bathy_path = self._find_bathy_image(folder_path)
 
-            # Reject if any are missing or the channel is marked as 'empty_image.png'
+            # Reject if any are missing or the bathy is marked as 'empty_image.png'
             if (main_image_path is None or
                 sss_image_path is None or
-                channel_path in [None, "empty_image.png"]):
+                bathy_path in [None, "empty_image.png"]):
                 continue
 
             # Verify all files exist on disk
-            image_paths = [main_image_path, sss_image_path, channel_path]
+            image_paths = [main_image_path, sss_image_path, bathy_path]
             if not all(os.path.exists(p) for p in image_paths):
                 continue
 
@@ -84,7 +84,7 @@ class CustomImageDataset_1(Dataset):
             # Append only if all are valid
             self.data.append({
                 'main_image': main_image_path,
-                'channel_image': channel_path,
+                'bathy_image': bathy_path,
                 'sss_image': sss_image_path,
             })
             successful_load_count += 1
@@ -117,15 +117,15 @@ class CustomImageDataset_1(Dataset):
             print(f"No valid SSS image found in {folder_path}")
         return selected_sss
 
-    def _find_channel_image(self, folder_path):
+    def _find_bathy_image(self, folder_path):
         path1 = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
-        path2 = os.path.join(folder_path, "combined_channels.jpg")
+        path2 = os.path.join(folder_path, "combined_bathy.jpg")
         if os.path.exists(path1):
             return path1
         elif os.path.exists(path2):
             return path2
         else:
-            print(f"Missing channel data in {folder_path}. Will load empty if accessed.")
+            print(f"Missing bathy data in {folder_path}. Will load empty if accessed.")
             return "empty_image.png"
 
     def __len__(self):
@@ -134,15 +134,15 @@ class CustomImageDataset_1(Dataset):
     def __getitem__(self, idx):
         data_item = self.data[idx]
         images = {}
-        empty_image = Image.new('RGB', (512, 512), color='black')
-        empty_image_gray = Image.new('L', (512, 512), color='black')
+        empty_image = Image.new('RGB', (256, 256), color='black')
+        empty_image_gray = Image.new('L', (256, 256), color='black')
         image_name = os.path.basename(data_item.get('main_image', ''))
 
         for key, path in data_item.items():
             if path:
                 try:
                     with Image.open(path) as img:
-                        if "sss" in key or "channel" in key and path == "empty_image.png": # Keep channel as grayscale if it's the placeholder
+                        if "sss" in key or "bathy" in key and path == "empty_image.png": # Keep bathy as grayscale if it's the placeholder
                             img = img.convert("L")
                         else:
                             img = img.convert("RGB")
@@ -154,16 +154,16 @@ class CustomImageDataset_1(Dataset):
                         images[key] = transformed_img
                 except FileNotFoundError:
                     print(f"Warning: Missing file {path}. Using empty image for {key}.")
-                    images[key] = empty_image_gray if "sss" in key or "channel" in key else empty_image
+                    images[key] = empty_image_gray if "sss" in key or "bathy" in key else empty_image
                 except Exception as e:
                     print(f"Error loading {path} for {key}: {e}. Using empty image.")
-                    images[key] = empty_image_gray if "sss" in key or "channel" in key else empty_image
+                    images[key] = empty_image_gray if "sss" in key or "bathy" in key else empty_image
             else:
-                images[key] = empty_image_gray if "sss" in key or "channel" in key else empty_image
+                images[key] = empty_image_gray if "sss" in key or "bathy" in key else empty_image
 
         return (
             images.get('main_image'),
-            images.get('channel_image'),
+            images.get('bathy_image'),
             images.get('sss_image'),
             image_name
         )
@@ -175,11 +175,11 @@ class CustomImageDataset(Dataset):
         self.labels = []
 
         self.transform = transforms.Compose([
-            transforms.Resize((512, 512)),
+            transforms.Resize((256, 256)),
             transforms.ToTensor(),
         ])
         self.transform_1 = transforms.Compose([
-            transforms.Resize((512, 512)),
+            transforms.Resize((256, 256)),
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=[62.19902423 / 255.0, 62.31835042 / 255.0, 61.53444229 / 255.0],
@@ -219,22 +219,22 @@ class CustomImageDataset(Dataset):
                 logging.debug(f"Skipping folder {folder_path} due to missing label: {e}")
                 continue
 
-            channel_image = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
-            if not os.path.exists(channel_image):
-                logging.debug(f"Skipping folder {folder_path} due to missing channel image.")
+            bathy_image = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
+            if not os.path.exists(bathy_image):
+                logging.debug(f"Skipping folder {folder_path} due to missing bathy image.")
                 continue
 
-            patch_channels_found = {}
+            patch_bathy_found = {}
             patch_sss_found = {}
             found_any_patch = False # Track if any patch of any size was found for this sample
 
             for file in os.listdir(folder_path):
-                channel_match = re.match(r"patch_(\d+m)_combined_bathy\.png", file)
+                bathy_match = re.match(r"patch_(\d+m)_combined_bathy\.png", file)
                 sss_match = re.match(r"patch_(\d+m)_.*_SSS\.(png|jpg)", file)
 
-                if channel_match:
-                    size = channel_match.group(1)
-                    patch_channels_found[size] = os.path.join(folder_path, file)
+                if bathy_match:
+                    size = bathy_match.group(1)
+                    patch_bathy_found[size] = os.path.join(folder_path, file)
                     self.all_discovered_patch_sizes.add(size) # Learn the size
                     found_any_patch = True
                 elif sss_match:
@@ -256,9 +256,9 @@ class CustomImageDataset(Dataset):
 
             self.data_paths.append({
                 "main_image": main_image,
-                "channel_image": channel_image,
+                "bathy_image": bathy_image,
                 "sss_image": sss_image,
-                "patch_channels": patch_channels_found,
+                "patch_bathy": patch_bathy_found,
                 "patch_sss": patch_sss_found,
             })
             all_labels.append(label)
@@ -285,34 +285,34 @@ class CustomImageDataset(Dataset):
         with Image.open(sample_paths["main_image"]).convert("RGB") as img:
             main_img = self.transform_1(img)
 
-        with Image.open(sample_paths["channel_image"]).convert("RGB") as img:
-            channel_img = self.transform(img)
+        with Image.open(sample_paths["bathy_image"]).convert("RGB") as img:
+            bathy_img = self.transform(img)
 
         with Image.open(sample_paths["sss_image"]).convert("L") as img:
             sss_img = self.transform(img)
 
         # Define dummy tensors based on your transformations.
         # These will be used if a specific patch size is missing for a sample.
-        dummy_channel_patch_tensor = torch.zeros(3, 512, 512) # RGB, 512x512
-        dummy_sss_patch_tensor = torch.zeros(1, 512, 512)    # Grayscale, 512x512
+        dummy_bathy_patch_tensor = torch.zeros(3, 256, 256) # RGB, 256x256
+        dummy_sss_patch_tensor = torch.zeros(1, 256, 256)    # Grayscale, 256x256
 
-        patch_channels_tensors = {}
+        patch_bathys_tensors = {}
         patch_sss_tensors = {}
 
         # Iterate over ALL discovered patch sizes from the dataset,
         # ensuring consistency across all __getitem__ calls
         for size in self.all_discovered_patch_sizes:
             # Handle channel patches
-            channel_path = sample_paths["patch_channels"].get(size)
-            if channel_path and os.path.exists(channel_path):
+            bathy_path = sample_paths["patch_bathy"].get(size)
+            if bathy_path and os.path.exists(bathy_path):
                 try:
-                    with Image.open(channel_path).convert("RGB") as img:
-                        patch_channels_tensors[size] = self.transform(img)
+                    with Image.open(bathy_path).convert("RGB") as img:
+                        patch_bathys_tensors[size] = self.transform(img)
                 except Exception as e:
-                    logging.warning(f"Error loading channel patch {channel_path}: {e}. Using dummy tensor.")
-                    patch_channels_tensors[size] = dummy_channel_patch_tensor
+                    logging.warning(f"Error loading channel patch {bathy_path}: {e}. Using dummy tensor.")
+                    patch_bathys_tensors[size] = dummy_bathy_patch_tensor
             else:
-                patch_channels_tensors[size] = dummy_channel_patch_tensor
+                patch_bathys_tensors[size] = dummy_bathy_patch_tensor
 
             # Handle SSS patches
             sss_path = sample_paths["patch_sss"].get(size)
@@ -328,9 +328,9 @@ class CustomImageDataset(Dataset):
 
         return {
             "main_image": main_img,
-            "channel_image": channel_img,
+            "bathy_image": bathy_img,
             "sss_image": sss_img,
-            "patch_channels": patch_channels_tensors, # Now guaranteed to have all discovered sizes
+            "patch_bathy": patch_bathys_tensors, # Now guaranteed to have all discovered sizes
             "patch_sss": patch_sss_tensors,         # Now guaranteed to have all discovered sizes
             "label": label,
         }

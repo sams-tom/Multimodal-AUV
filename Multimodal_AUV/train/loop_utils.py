@@ -9,6 +9,7 @@ from Multimodal_AUV.train.multimodal import train_multimodal_model, evaluate_mul
 import os
 from typing import Any , Optional, Dict, Tuple
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
+
 def define_optimizers_and_schedulers(
     models_dict: Dict[str, nn.Module],
     optimizer_params: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -45,7 +46,7 @@ def define_optimizers_and_schedulers(
     # 4. Build optimizers
     optimizers = {
         "image_model": optim.Adam(models_dict["image_model"].parameters(), **optimizer_params["image_model"]),
-        "channels_model": optim.Adam(models_dict["channels_model"].parameters(), **optimizer_params["channels_model"]),
+        "bathy_model": optim.Adam(models_dict["bathy_model"].parameters(), **optimizer_params["bathy_model"]),
         "sss_model": optim.Adam(models_dict["sss_model"].parameters(), **optimizer_params["sss_model"]),
         "multimodal_model": optim.Adam(
             models_dict["multimodal_model"].parameters(), 
@@ -142,7 +143,6 @@ def train_and_evaluate_unimodal_model(
             sum_writer=sum_writer
         )
         
-
         logging.debug(f"Epoch {epoch}/{num_epochs} - Evaluation")
         val_accuracy = evaluate_unimodal_model(
             model=model,
@@ -172,7 +172,7 @@ def train_and_evaluate_multimodal_model(
     num_mc:int,
     device: torch.device,
     model_type: str,
-    channel_patch_type: str,
+    bathy_patch_type: str,
     sss_patch_type: str,
     csv_path: str, 
     sum_writer: SummaryWriter
@@ -190,13 +190,13 @@ def train_and_evaluate_multimodal_model(
         num_epochs (int): Number of epochs.
         device (torch.device): Device to use.
         model_type (str): Type of model (e.g., "multimodal").
-        channel_patch_type (str): Current channel patch type.
+        bathy_patch_type (str): Current bathy patch type.
         sss_patch_type (str): Current SSS patch type.
         csv_path (str): Path for saving results (e.g., logs, predictions).
     """
     logging.info("Starting multimodal model training and evaluation")
     logging.info(f"Model type: {model_type}")
-    logging.info(f"Channel patch type: {channel_patch_type}")
+    logging.info(f"bathy patch type: {bathy_patch_type}")
     logging.info(f"SSS patch type: {sss_patch_type}")
     logging.info(f"Number of epochs: {num_epochs}")
     logging.info(f"Number of Monte Carlo samples (num_mc): {num_mc}")
@@ -221,7 +221,7 @@ def train_and_evaluate_multimodal_model(
             device=device,
             model_type=model_type,
             num_mc=num_mc,
-            channel_patch_type=channel_patch_type,
+           bathy_patch_type=bathy_patch_type,
             sss_patch_type=sss_patch_type,
             csv_path=csv_path,
             sum_writer=sum_writer
@@ -237,11 +237,11 @@ def train_and_evaluate_multimodal_model(
             total_num_epochs= num_epochs,
             num_mc =num_mc,
             csv_path=csv_path, 
-            channel_patch_type=channel_patch_type,
+            bathy_patch_type=bathy_patch_type,
             sss_patch_type=sss_patch_type,
             model_type=model_type
         )
         sum_writer.add_scalar("train/loss/epoch", train_loss, epoch)
         sum_writer.add_scalar("val/accuracy/epoch", val_accuracy, epoch)
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Evaluation complete.")
-    logging.info(f"Finished training & evaluation for multimodal model with C:{channel_patch_type}, S:{sss_patch_type}")
+    logging.info(f"Finished training & evaluation for multimodal model with C:{bathy_patch_type}, S:{sss_patch_type}")

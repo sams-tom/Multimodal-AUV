@@ -52,10 +52,10 @@ class AdditiveAttention(nn.Module):
             return attended_values
 
 class MultiModalModel(nn.Module):
-        def __init__(self, image_model_feat, channels_model_feat, sss_model_feat, num_classes, attention_type="scaled_dot_product"):  # Add attention_type
+        def __init__(self, image_model_feat, bathy_model_feat, sss_model_feat, num_classes, attention_type="scaled_dot_product"):  # Add attention_type
             super(MultiModalModel, self).__init__()
             self.image_model_feat = image_model_feat
-            self.channels_model_feat = channels_model_feat
+            self.bathy_model_feat = bathy_model_feat
             self.sss_model_feat = sss_model_feat
             self.fc = nn.Linear(384, 1284)
             self.fc1 = nn.Linear(1284, 32)
@@ -67,23 +67,23 @@ class MultiModalModel(nn.Module):
 
   
             self.attention_image = AdditiveAttention(2048)
-            self.attention_channels = AdditiveAttention(2048)
+            self.attention_bathy = AdditiveAttention(2048)
             self.attention_sss = AdditiveAttention(2048)
             # Add more attention types as needed
 
-        def forward(self, inputs, channels_tensor, sss_image):
+        def forward(self, inputs, bathy_tensor, sss_image):
 
             image_features = self.image_model_feat(inputs)
 
-            channels_features = self.channels_model_feat(channels_tensor)
+            bathy_features = self.bathy_model_feat(bathy_tensor)
 
             sss_features = self.sss_model_feat(sss_image)
 
             image_features_attended = self.attention_image(image_features)
-            channels_features_attended = self.attention_channels(channels_features)
+            bathy_features_attended = self.attention_bathy(bathy_features)
             sss_features_attended = self.attention_sss(sss_features)
 
-            combined_features = torch.cat([image_features_attended, channels_features_attended, sss_features_attended], dim=1)
+            combined_features = torch.cat([image_features_attended, bathy_features_attended, sss_features_attended], dim=1)
             outputs_1 = self.fc(combined_features)
             output_2 = self.fc1(outputs_1)
             outputs = self.fc2(output_2)

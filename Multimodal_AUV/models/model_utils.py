@@ -18,30 +18,30 @@ def define_models(
     """
     try:
         image_model = ResNet50Custom(input_channels=3, num_classes=num_classes)
-        channels_model = ResNet50Custom(input_channels=3, num_classes=num_classes)
+        bathy_model = ResNet50Custom(input_channels=3, num_classes=num_classes)
         sss_model = ResNet50Custom(input_channels=1, num_classes=num_classes)
 
         logging.info("Loading pretrained models as feature extractors.")
 
         logging.info("Converting models to Bayesian versions.")
         dnn_to_bnn(image_model, const_bnn_prior_parameters)
-        dnn_to_bnn(channels_model, const_bnn_prior_parameters)
+        dnn_to_bnn(bathy_model, const_bnn_prior_parameters)
         dnn_to_bnn(sss_model, const_bnn_prior_parameters)
 
         image_model_feat = load_pretrained_resnet_as_feature_extractor()
-        channels_model_feat = load_pretrained_resnet_as_feature_extractor()
+        bathy_model_feat = load_pretrained_resnet_as_feature_extractor()
         sss_model_feat = load_pretrained_resnet_as_feature_extractor(input_channels=1)
 
-        multimodal_model = MultiModalModel(image_model_feat, channels_model_feat, sss_model_feat, num_classes)
+        multimodal_model = MultiModalModel(image_model_feat, bathy_model_feat, sss_model_feat, num_classes)
         dnn_to_bnn(multimodal_model, const_bnn_prior_parameters)
 
         return {
             "image_model": image_model,
-            "channels_model": channels_model,
+            "bathy_model": bathy_model,
             "sss_model": sss_model,
             "multimodal_model": multimodal_model,
             "image_model_feat": image_model_feat,
-            "channels_model_feat": channels_model_feat,
+            "bathy_model_feat": bathy_model_feat,
             "sss_model_feat": sss_model_feat,
         }
 

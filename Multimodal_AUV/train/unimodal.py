@@ -8,6 +8,8 @@ import csv
 from typing import Optional
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from Multimodal_AUV.train.checkpointing import save_model
+from sklearn.metrics import confusion_matrix , ConfusionMatrixDisplay
+
 import matplotlib
 matplotlib.use('Agg') # This must be called *before* importing matplotlib.pyplot
 import matplotlib.pyplot as plt
@@ -83,7 +85,7 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
 
             #Define parameters to keep track off
             total_loss, correct, total = 0, 0, 0
-
+ 
             #For each dataloader item extract all the data forms
             for i, batch in enumerate(dataloader):
                 logging.info(f"Train batch {i+1}/{len(dataloader)} - Model: {model_type}")
@@ -91,15 +93,15 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
                 labels = batch["label"].long().to(device)
-                channels_tensor = batch["channel_image"].to(device)
+                bathy_tensor = batch["bathy_image"].to(device)
                 sss_image = batch["sss_image"].to(device)
 
-                # Move all patch channels and SSS patches to device dynamically
-                patch_channels = {k: v.to(device) for k, v in batch.get("patch_channels", {}).items()}
+                # Move all patch bathy and SSS patches to device dynamically
+                patch_bathy = {k: v.to(device) for k, v in batch.get("patch_bathy", {}).items()}
                 patch_sss = {k: v.to(device) for k, v in batch.get("patch_sss", {}).items()}
 
                 # Merge both patch sources into a single dictionary
-                all_patches = {**patch_channels, **patch_sss, "patch_30_channel": channels_tensor, "patch_30_sss": sss_image}
+                all_patches = {**patch_bathy, **patch_sss, "patch_30_bathy": bathy_tensor, "patch_30_sss": sss_image}
 
                 # Select patch tensor if type is provided
                 patch = all_patches.get(patch_type) if patch_type else None
@@ -112,8 +114,8 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
                     model_input = inputs
                 elif model_type == "sss":
                     model_input = sss_image
-                elif model_type == "channels":
-                    model_input = channels_tensor
+                elif model_type == "bathy":
+                    model_input = bathy_tensor
                 else:
                     # fallback or raise error if unexpected model_type
                     logging.error(f"Unknown model_type: {model_type}") 
@@ -152,7 +154,7 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
                 correct += (predicted == labels).sum().item()
                 total += labels.size(0)
                 sum_writer.add_scalar("Loss/train", loss, i)
-
+                
             #Estimate the train accuracy, loss and learnign rate
             train_accuracy = correct / total
             train_loss = total_loss / total
@@ -161,7 +163,7 @@ def train_unimodal_model(model: nn.Module, dataloader: DataLoader, criterion: nn
             #Log this
             logging.info(f"Epoch {epoch + 1} | Final Loss: {train_loss:.4f} | Accuracy: {train_accuracy:.4f} | LR: {lr:.6f}")
             writer.writerow([epoch + 1, model_type, train_loss, train_accuracy, lr])
-    
+
         #Save the model every 5 epochs:
         if epoch % 5 ==0:
             save_model(model, csv_path, model_type)
@@ -212,25 +214,29 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 #If it didnt exist then write the headers
             if not file_exists:
                     writer.writerow(["Epoch", "Model Type", "Test Loss", "Test Accuracy", "predictive_uncertainty", "model_uncertainty"])
+       
+
                 #Define some metrics to keep track off
             correct, total, total_loss = 0, 0, 0
             all_predictive_uncertainties = []
             all_aleatoric_uncertainties = []
+            all_predicted = []
+            all_labels = []
                 #For each dataloader item extract all the data forms
             for i, batch in enumerate(dataloader):
                 logging.info(f"Train batch {i+1}/{len(dataloader)} - Model: {model_type}")
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
                 labels = batch["label"].long().to(device)
-                channels_tensor = batch["channel_image"].to(device)
+                bathy_tensor = batch["bathy_image"].to(device)
                 sss_image = batch["sss_image"].to(device)
 
-                # Move all patch channels and SSS patches to device dynamically
-                patch_channels = {k: v.to(device) for k, v in batch.get("patch_channels", {}).items()}
+                # Move all patch bathy and SSS patches to device dynamically
+                patch_bathy = {k: v.to(device) for k, v in batch.get("patch_bathy", {}).items()}
                 patch_sss = {k: v.to(device) for k, v in batch.get("patch_sss", {}).items()}
 
                 # Merge both patch sources into a single dictionary
-                all_patches = {**patch_channels, **patch_sss, "patch_30_channel": channels_tensor, "patch_30_sss": sss_image}
+                all_patches = {**patch_bathy, **patch_sss, "patch_30_bathy": bathy_tensor, "patch_30_sss": sss_image}
 
                 # Select patch tensor if type is provided
                 patch = all_patches.get(patch_type) if patch_type else None
@@ -239,8 +245,8 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                     model_input = inputs
                 elif model_type == "sss":
                     model_input = sss_image
-                elif model_type == "channels":
-                    model_input = channels_tensor
+                elif model_type == "bathy":
+                    model_input = bathy_tensor
                 else:
                     # fallback or raise error if unexpected model_type
                     logging.error(f"Unknown model_type: {model_type}")
@@ -276,7 +282,7 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 probabilities_mean = torch.softmax(output_mean_logits, dim=-1)
                 _, predicted = probabilities_mean.max(1)
 
-                # Accumulate loss, correct predictions, and total count
+                # Accumulate loss, correct prdictions, and total count
                 total_loss += loss.item()
                 correct += (predicted == labels).sum().item()
                 total += labels.size(0)
@@ -301,7 +307,8 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 # Average across MC samples for each batch item
                 aleatoric_uncertainty_batch = torch.mean(entropy_per_mc_and_item, dim=0) # Shape: (batch_size,)
                 all_aleatoric_uncertainties.extend(aleatoric_uncertainty_batch.cpu().detach().numpy())
-
+                all_predicted.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
 
             # Calculate epoch-level averages for loss, accuracy, and uncertainties
             accuracy = correct / total
@@ -310,13 +317,38 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
             # Average the collected uncertainties over the entire dataset
             avg_predictive_uncertainty = np.mean(all_predictive_uncertainties) if all_predictive_uncertainties else 0.0
             avg_aleatoric_uncertainty = np.mean(all_aleatoric_uncertainties) if all_aleatoric_uncertainties else 0.0
+           
 
             # Print and save to CSV
             logging.info(
                 f"Eval Epoch {epoch + 1} | Loss: {avg_loss:.4f} | Accuracy: {accuracy:.4f} | "
                 f"Epistemic UQ: {avg_predictive_uncertainty:.6f} | Aleatoric UQ: {avg_aleatoric_uncertainty:.6f}"
             )
-
+            try: # Inner try for plotting
+                        # Confusion Matrix
+                        cm = confusion_matrix(all_labels, all_predicted) # Consider adding labels=list(range(num_classes))
+                        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+                        fig, ax = plt.subplots(figsize=(8, 8))
+                        disp.plot(cmap="Blues", ax=ax)
+                        plt.title(f"Confusion Matrix for Epoch {epoch}")
+                        # Get the parent directory of the CSV path
+                        parent_path = os.path.dirname(csv_path)
+                        # Define the subfolder path for confusion matrices
+                        conf_matrix_folder = os.path.join(parent_path, "confusion_matrices")
+                        # Create the folder if it doesn't exist
+                        os.makedirs(conf_matrix_folder, exist_ok=True)
+                        # Create the filename and full path
+                        matrix_filename = f"conf_matrix_model_{model_type}_{epoch}.png"
+                        matrix_path = os.path.join(conf_matrix_folder, matrix_filename)
+                        # Save the plot
+                        plt.savefig(matrix_path)
+                        # Log the full path where it's saved
+                        logging.info(f"Confusion matrix saved to: {matrix_path}")
+            except Exception as e:
+                        logging.warning(f"Confusion matrix not saved due to plotting error: {e}", exc_info=True)
+            finally: # Ensures fig is closed regardless of success or failure
+                        if fig is not None:
+                            plt.close(fig)
             #Write this
             writer.writerow([
                 epoch + 1,
@@ -324,7 +356,7 @@ def evaluate_unimodal_model(model: nn.Module, dataloader: DataLoader, device: to
                 avg_loss,
                 accuracy,
                 avg_predictive_uncertainty,
-                avg_aleatoric_uncertainty # Corrected typo here
+                avg_aleatoric_uncertainty 
             ])
     except:
             save_model(model, csv_path, model_type)

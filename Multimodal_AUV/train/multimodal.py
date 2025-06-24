@@ -32,7 +32,7 @@ def train_multimodal_model(
     total_num_epochs: int,
     num_mc: int,
     sum_writer: SummaryWriter,
-    channel_patch_type: Optional[str]=None,
+    bathy_patch_type: Optional[str]=None,
     sss_patch_type: Optional[str]=None,
     csv_path: Optional[str]=""
 ) -> Tuple[float, float]:
@@ -48,7 +48,7 @@ def train_multimodal_model(
         epoch (int): Current epoch index, used for KL weight scaling.
         device (torch.device): Computation device (CPU/GPU).
         model_type (str): Label describing the model type for logging.
-        channel_patch_type (str or None, optional): Patch type for channel data.
+        bathy_patch_type (str or None, optional): Patch type for bathy data.
         sss_patch_type (str or None, optional): Patch type for SSS data.
         csv_path (str, optional): Path to CSV file for logging training metrics.
 
@@ -84,19 +84,19 @@ def train_multimodal_model(
                 # Move core tensors to device
                 inputs = batch["main_image"].to(device)
                 labels = batch["label"].long().to(device)
-                channels_tensor = batch["channel_image"].to(device)
+                bathy_tensor = batch["bathy_image"].to(device)
                 sss_image = batch["sss_image"].to(device)
 
-                # Move all patch channels and SSS patches to device dynamically
-                patch_channels = {k: v.to(device) for k, v in batch.get("patch_channels", {}).items()}
+                # Move all patch bathy and SSS patches to device dynamically
+                patch_bathy = {k: v.to(device) for k, v in batch.get("patch_bathy", {}).items()}
                 patch_sss = {k: v.to(device) for k, v in batch.get("patch_sss", {}).items()}
 
                 # Add default full tensors with special keys
-                patch_channels["patch_30_channel"] = channels_tensor
+                patch_bathy["patch_30_bathy"] = bathy_tensor
                 patch_sss["patch_30_sss"] = sss_image
 
                 # Select patches based on provided patch types (or default to full tensor)
-                channel_patch = patch_channels.get(channel_patch_type, channels_tensor)  # fallback to full
+                bathy_patch = patch_bathy.get(bathy_patch_type, bathys_tensor)  # fallback to full
                 sss_patch = patch_sss.get(sss_patch_type, sss_image)                    # fallback to full
 
                 output_ensemble = []
@@ -105,9 +105,9 @@ def train_multimodal_model(
                 for _ in range(num_mc):
                     # Support DistributedDataParallel
                     if isinstance(multimodal_model, torch.nn.parallel.DistributedDataParallel):
-                        outputs = multimodal_model.module(inputs, channel_patch, sss_patch)
+                        outputs = multimodal_model.module(inputs, bathy_patch, sss_patch)
                     else:
-                        outputs = multimodal_model(inputs, channel_patch, sss_patch)
+                        outputs = multimodal_model(inputs, bathy_patch, sss_patch)
                     # Compute KL divergence for this pass
                     kl_main = get_kl_loss(multimodal_model)
 
@@ -172,26 +172,26 @@ def train_multimodal_model(
                     )
             # Extract patch sizes from type strings for logging
             sss_patch_size = sss_patch_type.replace("patch_", "").replace("_sss", "") if sss_patch_type else "none"
-            channel_patch_size = channel_patch_type.replace("patch_", "").replace("_channel", "") if channel_patch_type else "none"
+            bathy_patch_size = bathy_patch_type.replace("patch_", "").replace("_bathy", "") if bathy_patch_type else "none"
 
             # Write training results to CSV
             csv_writer.writerow([
                 epoch, model_type, train_loss, train_accuracy, lr,
                 scaled_kl.item(), cross_entropy_loss.item(),
-                sss_patch_size, channel_patch_size
+                sss_patch_size, bathy_patch_size
             ])
 
         # Save model checkpoint every 5 epochs
         if epoch % 5 ==0:
-            save_model(multimodal_model, csv_path, f"{model_type}_channel_patch{channel_patch_size}_sss_patch{sss_patch_size}")
+            save_model(multimodal_model, csv_path, f"{model_type}_bathy_patch{bathy_patch_size}_sss_patch{sss_patch_size}")
 
         # Free unused GPU memory
         torch.cuda.empty_cache()
     except:
           # Extract patch sizes from type strings for logging
             sss_patch_size = sss_patch_type.replace("patch_", "").replace("_sss", "") if sss_patch_type else "none"
-            channel_patch_size = channel_patch_type.replace("patch_", "").replace("_channel", "") if channel_patch_type else "none"
-            save_model(multimodal_model, csv_path, f"{model_type}_channel_patch{channel_patch_size}_sss_patch{sss_patch_size}")
+            bathy_patch_size = bathy_patch_type.replace("patch_", "").replace("_bathy", "") if bathy_patch_type else "none"
+            save_model(multimodal_model, csv_path, f"{model_type}_bathy_patch{bathy_patch_size}_sss_patch{sss_patch_size}")
             logging.error(f"Error at epoch {epoch}", exc_info=True)
             train_loss, train_accuracy = 0.0, 0.0
     # Return metrics
@@ -205,7 +205,7 @@ def evaluate_multimodal_model(
     total_num_epochs: int,
     num_mc: int,
     model_type: str,
-    channel_patch_type: Optional[str] = None,
+    bathy_patch_type: Optional[str] = None,
     sss_patch_type: Optional[str] = None,
     csv_path: Optional[str] = ""
 ):
@@ -220,7 +220,7 @@ def evaluate_multimodal_model(
         total_num_epochs: Used for scaling KL.
         num_mc: Number of MC samples.
         model_type: Descriptive name of the model.
-        channel_patch_type: Patch key for channel image.
+        bathy_patch_type: Patch key for bathy image.
         sss_patch_type: Patch key for SSS image.
         csv_path: Output CSV file for metrics.
     """
@@ -236,7 +236,7 @@ def evaluate_multimodal_model(
                     "Epoch", "Model Type", "Test Loss", "Test Accuracy",
                     "Predictive Uncertainty", "Model Uncertainty",
                     "Scaled KL", "Cross Entropy Loss",
-                    "Channel Patch Type", "SSS Patch Type"
+                    "bathy Patch Type", "SSS Patch Type"
                 ])
 
             criterion = nn.CrossEntropyLoss()
@@ -257,15 +257,15 @@ def evaluate_multimodal_model(
 
                     inputs = batch["main_image"].to(device)
                     labels = batch["label"].long().to(device)
-                    channels_tensor = batch["channel_image"].to(device)
+                    bathy_tensor = batch["bathy_image"].to(device)
                     sss_image = batch["sss_image"].to(device)
 
-                    patch_channels = {k: v.to(device) for k, v in batch.get("patch_channels", {}).items()}
+                    patch_bathy = {k: v.to(device) for k, v in batch.get("patch_bathy", {}).items()}
                     patch_sss = {k: v.to(device) for k, v in batch.get("patch_sss", {}).items()}
-                    patch_channels["patch_30_channel"] = channels_tensor
+                    patch_bathy["patch_30_bathy"] = bathy_tensor
                     patch_sss["patch_30_sss"] = sss_image
 
-                    channel_patch = patch_channels.get(channel_patch_type, channels_tensor)
+                    bathy_patch = patch_bathy.get(bathy_patch_type, bathy_tensor)
                     sss_patch = patch_sss.get(sss_patch_type, sss_image)
 
                     outputs_mc = []
@@ -273,7 +273,7 @@ def evaluate_multimodal_model(
                     kl_mc = []
 
                     for _ in range(num_mc):
-                        outputs = multimodal_model(inputs, channel_patch, sss_patch)
+                        outputs = multimodal_model(inputs, bathy_patch, sss_patch)
                         outputs_mc.append(outputs)
                         softmax_outputs_mc.append(F.softmax(outputs, dim=1))
                         kl = get_kl_loss(multimodal_model)
@@ -322,10 +322,19 @@ def evaluate_multimodal_model(
                 disp.plot(cmap="Blues", ax=ax)
                 plt.title(f"Confusion Matrix for Epoch {epoch}")
 
+                # Get the parent directory of the CSV path
                 parent_path = os.path.dirname(csv_path)
-                matrix_filename = f"conf_matrix_model_{model_type}_chan_{channel_patch_type or '30'}_sss_{sss_patch_type or '30'}.png"
-                plt.savefig(os.path.join(parent_path, matrix_filename))
-                logging.info(f"Confusion matrix saved to: {matrix_filename}")
+                # Define the subfolder path for confusion matrices
+                conf_matrix_folder = os.path.join(parent_path, "confusion_matrices")
+                # Create the folder if it doesn't exist
+                os.makedirs(conf_matrix_folder, exist_ok=True)
+                # Create the filename and full path
+                matrix_filename = f"conf_matrix_model_{model_type}_{epoch}.png"
+                matrix_path = os.path.join(conf_matrix_folder, matrix_filename)
+                # Save the plot
+                plt.savefig(matrix_path)
+                # Log the full path where it's saved
+                logging.info(f"Confusion matrix saved to: {matrix_path}")
             except Exception as e:
                 logging.warning(f"Confusion matrix not saved due to plotting error: {e}", exc_info=True)
             finally: # Ensures fig is closed regardless of success or failure
@@ -342,7 +351,7 @@ def evaluate_multimodal_model(
                 model_uncertainty_mean,
                 kl_scaled.item(),
                 cross_entropy_loss.item(),
-                channel_patch_type or "patch_30_channel",
+                bathy_patch_type or "patch_30_bathy",
                 sss_patch_type or "patch_30_sss"
             ])
             logging.info(f"Epoch {epoch + 1}: Test Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.4f}, "

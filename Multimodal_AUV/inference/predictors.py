@@ -18,7 +18,7 @@ def multimodal_predict_and_save(multimodal_model: nn.Module, dataloader: DataLoa
         csv_path (str): File path where prediction results will be saved.
         num_mc_samples (int, optional): Number of Monte Carlo samples for uncertainty estimation.
         sss_patch_type (str, optional): SSS patch type description for logging (default empty).
-        channel_patch_type (str, optional): Channel patch type description for logging (default empty).
+        bathy_patch_type (str, optional): bathy patch type description for logging (default empty).
         model_type (str, optional): Model type label for logging (default "multimodal").
 
     Returns:
@@ -36,18 +36,18 @@ def multimodal_predict_and_save(multimodal_model: nn.Module, dataloader: DataLoa
             logging.info(f"Length of the dataloader: {len(dataloader)}") 
 
             with torch.no_grad():  # Disable gradient computation to reduce memory usage and improve inference speed
-                for batch_idx, (inputs, patch_30_channel, patch_30_sss, image_name) in enumerate(dataloader):
+                for batch_idx, (inputs, patch_30_bathy, patch_30_sss, image_name) in enumerate(dataloader):
                     logging.info(f"\n--- Processing Batch {batch_idx + 1} ---")
 
 
                     # Move all inputs to the target device (CPU/GPU), maintaining consistency across computation
                     inputs = inputs.to(device)
-                    channels_tensor = patch_30_channel.to(device)
+                    bathy_tensor = patch_30_bathy.to(device)
                     sss_image = patch_30_sss.to(device)
 
                     # Log tensor shapes to confirm batch and input dimensionality align with model expectations
-                    logging.debug(f"Input shape: {inputs.shape}, Channel shape: {channels_tensor.shape}, SSS shape: {sss_image.shape}")
-                    logging.debug(f"Input device: {inputs.device}, Channel device: {channels_tensor.device}, SSS device: {sss_image.device}")
+                    logging.debug(f"Input shape: {inputs.shape}, bathy shape: {bathy_tensor.shape}, SSS shape: {sss_image.shape}")
+                    logging.debug(f"Input device: {inputs.device}, bathy device: {bathy_tensor.device}, SSS device: {sss_image.device}")
 
                     softmax_outputs_mc = []  # Store probability outputs from repeated stochastic forward passes
 
@@ -55,10 +55,10 @@ def multimodal_predict_and_save(multimodal_model: nn.Module, dataloader: DataLoa
                         with torch.amp.autocast(device_type='cuda' if device.type == 'cuda' else 'cpu'):
                             if isinstance(multimodal_model, torch.nn.parallel.DistributedDataParallel):
                                 # Special handling if model is wrapped for distributed training
-                                outputs = multimodal_model.module(inputs, channels_tensor, sss_image)
+                                outputs = multimodal_model.module(inputs, bathy_tensor, sss_image)
                                 logging.debug(f"MC Sample {mc_sample + 1} - Output shape: {outputs.shape}")
                             else:
-                                outputs = multimodal_model(inputs, channels_tensor, sss_image)
+                                outputs = multimodal_model(inputs, bathy_tensor, sss_image)
                                 logging.debug(f"MC Sample {mc_sample + 1} - Output shape: {outputs.shape}")
 
                             # Convert raw model outputs to probabilities
