@@ -96,7 +96,7 @@ def train_multimodal_model(
                 patch_sss["patch_30_sss"] = sss_image
 
                 # Select patches based on provided patch types (or default to full tensor)
-                bathy_patch = patch_bathy.get(bathy_patch_type, bathys_tensor)  # fallback to full
+                bathy_patch = patch_bathy.get(bathy_patch_type, bathy_tensor)  # fallback to full
                 sss_patch = patch_sss.get(sss_patch_type, sss_image)                    # fallback to full
 
                 output_ensemble = []
@@ -157,9 +157,11 @@ def train_multimodal_model(
 
                 # Print current batch stats
                 logging.info(
-                                f"[Epoch {epoch} | Batch {i}] Loss: {loss.item():.4f}, "
-                                f"KL: {scaled_kl.item():.4f}, Accuracy: {correct / total:.4f}"
-                            )
+                    f"[Epoch {epoch} | Batch {i}] Loss: {loss.item():.4f}, "
+                    f"KL: {scaled_kl.item():.4f}, Accuracy: {correct / total:.4f}, "
+                    f"Predicted: {predicted.cpu().numpy().tolist()} (Sample), "
+                    f"Labels: {labels.cpu().numpy().tolist()} (Real)" # Added real labels here
+                )
 
             # Compute training metrics for this epoch
             train_accuracy = correct / total

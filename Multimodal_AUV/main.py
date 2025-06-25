@@ -22,26 +22,46 @@ def main(
     training_params: Dict[str, Any],  root_dir, models_dir, strangford_dir, mulroy_dir, devices
 ):
     
+ # Get the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO) # Set the root logger's level to INFO
 
-    # Setup logging once
+    # Clear any existing handlers (useful if main is called multiple times or other modules init logging)
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Setup file logging
     log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, "training.log")
 
-    logging.basicConfig(
-        filename=log_path,
-        level=logging.INFO,
-        format='%(asctime)s | %(levelname)s | %(message)s',
-    )
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setLevel(logging.INFO)
+    file_formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+    file_handler.setFormatter(file_formatter)
+    root_logger.addHandler(file_handler)
 
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(levelname)s | %(message)s')
-    console.setFormatter(formatter)
-    logging.getLogger().addHandler(console)
-        
+    # Setup console logging
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    # Use a format that works well for the console
+    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    # Or, if you prefer a more compact console output:
+    # console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
     # Initialize TensorBoard writer
     tb_log_dir = os.path.join("tensorboard_logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    sum_writer = SummaryWriter(log_dir=tb_log_dir)
+    sum_writer.add_text("Init", "TensorBoard logging started", 0)
+    #In terminal type:
+    #tensorboard --logdir=tensorboard_logs --port=6006
+    #In broswer navigate to:
+    #http://localhost:6006
+
+    # Example use
+    logging.info("Logging initialized.")
     sum_writer = SummaryWriter(log_dir=tb_log_dir)
     sum_writer.add_text("Init", "TensorBoard logging started", 0)
     #In terminal type:
@@ -72,31 +92,31 @@ def main(
     criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
 
     # 5. Train Unimodal Models
-    model_labels = {
-        "image_model": "image",
-        "bathy_model": "bathy",
-        "sss_model": "sss",
-    }
-    logging.info("Starting training of unimodal models...")
-    print("Starting training of unimodal models...")
-    for model_key in ["image_model", "bathy_model", "sss_model"]:
-       print(f"training model: {model_key}")
-       logging.info(f"Training {model_key}...")
-       train_and_evaluate_unimodal_model(
-           model=models_dict[model_key],
-           train_loader=unimodal_train_loader,
-           test_loader=unimodal_test_loader,
-           criterion=criterion,
-           optimizer=optimizers[model_key],
-           scheduler=schedulers[model_key],
-           num_epochs=training_params["num_epochs_unimodal"],
-           num_mc=training_params["num_mc"],
-           device=devices[0],
-           model_name=model_labels[model_key], 
-           save_dir=f"{root_dir}csvs/",
-           sum_writer=sum_writer
-       )
-       logging.info(f"Finished training {model_key}.")
+    #model_labels = {
+    #    "image_model": "image",
+    #    "bathy_model": "bathy",
+    #    "sss_model": "sss",
+    #}
+    #logging.info("Starting training of unimodal models...")
+    #print("Starting training of unimodal models...")
+    #for model_key in ["image_model", "bathy_model", "sss_model"]:
+    #   print(f"training model: {model_key}")
+    #   logging.info(f"Training {model_key}...")
+    #   train_and_evaluate_unimodal_model(
+    #       model=models_dict[model_key],
+    #       train_loader=unimodal_train_loader,
+    #       test_loader=unimodal_test_loader,
+    #       criterion=criterion,
+    #       optimizer=optimizers[model_key],
+    #       scheduler=schedulers[model_key],
+    #       num_epochs=training_params["num_epochs_unimodal"],
+    #       num_mc=training_params["num_mc"],
+    #       device=devices[0],
+    #       model_name=model_labels[model_key], 
+    #       save_dir=f"{root_dir}csvs/",
+    #       sum_writer=sum_writer
+    #   )
+    #   logging.info(f"Finished training {model_key}.")
 
 
    # 6. Load and Check Multimodal Model
@@ -213,13 +233,13 @@ if __name__ == "__main__":
     training_params = {
         "num_epochs_unimodal": 30,
         "num_epochs_multimodal": 30,
-        "num_mc":7,
+        "num_mc":12,
         "bathy_patch_base": "patch_30_bathy",
         "sss_patch_base": "patch_30_sss",
         "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
         "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
         "batch_size_unimodal" : 8,
-        "batch_size_multimodal" : 4
+        "batch_size_multimodal" : 12
     }
 
     main(

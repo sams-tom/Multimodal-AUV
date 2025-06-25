@@ -209,7 +209,7 @@ def train_and_evaluate_multimodal_model(
     logging.info(f"Learning rate scheduler: {lr_scheduler.__class__.__name__}")
     logging.info(f"Model architecture: {multimodal_model.__class__.__name__}")
 
-    for epoch in range(num_epochs): # Corrected loop
+    for epoch in range(num_epochs): 
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Multimodal model training started.")
         train_loss, train_accuracy =train_multimodal_model(
             multimodal_model=multimodal_model,
@@ -241,6 +241,7 @@ def train_and_evaluate_multimodal_model(
             sss_patch_type=sss_patch_type,
             model_type=model_type
         )
+        lr_scheduler.step()
         sum_writer.add_scalar("train/loss/epoch", train_loss, epoch)
         sum_writer.add_scalar("val/accuracy/epoch", val_accuracy, epoch)
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Evaluation complete.")
