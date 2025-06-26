@@ -15,6 +15,9 @@ import cv2 # For computer vision tasks (e.g., image processing)
 import torch # For tensor computations
 import numpy as np # For numerical computations
 import matplotlib.pyplot as plt # For plotting and visualization
+import numpy as np #For numpy
+import re #For matching
+import shutil #For moving files
 
 #this function returns the value of pixels resolution (IE the return is what the pixel equals in actual on the ground measurement (IE 0.2 is 0.2 of a meter))
 def get_pixel_resolution(geotiff_file):
@@ -37,31 +40,10 @@ def get_pixel_resolution(geotiff_file):
         print(f"Error opening {geotiff_file}: {e}")
         return None, None  # Return None in case of error
 
-# Output folder
-# window_size in meters, this will give a square x*x meters
-window_size = 20
-
-# Folder containing GeoTIFF files
-folder_path = 'D:/Dataset_AUV_IRELAND/Irish sonar/'
-
-# Folder containing images
-image_folder = 'E:/strangford/Images/Processed/'
-
-# CSV containing image information
-csv_file_path = "E:/strangford/Images/Processed/combined_csv.csv"
-
-# Get list of files in the folder
-files = os.listdir(folder_path)
 def is_geotiff(file):
     """Checks if a file is a GeoTIFF."""
     return file.lower().endswith(('.tif', '.tiff'))
-# Filter GeoTIFF files
-geotiff_files = [file for file in files if is_geotiff(file)]
 
-for file in geotiff_files:
-    x, y = get_pixel_resolution(file)
-    if x is not None and y is not None:
-        print(f"File: {file}, X Resolution: {x}, Y Resolution: {y}")
 #This took the folder of labelled images and then get the csv of the depths and locations etc. to be used later
 def filter_csv_by_image_names(csv_file_path, image_folder_path):
     # Load the CSV file
@@ -156,9 +138,6 @@ def extract_grid(geotiff_path, easting, northing, image_name_o, output_folder, w
 
     except Exception as e:
         pass
-#This gets all the geotiff files 
-def is_geotiff(filename):
-    return filename.lower().endswith('.tif') or filename.lower().endswith('.tiff')
 
 
 
@@ -189,15 +168,6 @@ def process_images(folder_path):
     image_name = None
     min_zeros = float('inf') # Initialize min_zeros to positive infinity
 
-import os
-import cv2
-import numpy as np
-
-
-import os
-import cv2
-import re
-import shutil
 
 def process_frame_channels_in_subfolders(root_folder):
     """
@@ -370,68 +340,7 @@ def update_csv_path(csv_file_path, old_prefix, new_prefix):
         print(f"Error: 'path' column not found in CSV header.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-
-def average_subtract_frame_folders_move(root_directory):
-    """
-    For all folders in the root directory that have the format frame_xxxxxx,
-    calculates the average of the images in the folder, subtracts this average
-    from each image, and saves the resulting images into a new folder 
-    named after the original image, located in the root directory,
-    with "average_subtracted" appended to the filename. Removes the extension from the folder name.
-
-    Args:
-        root_directory (str): The root directory containing the frame_xxxxxx folders.
-    """
-
-    if not os.path.exists(root_directory):
-        print(f"Root directory not found: {root_directory}")
-        return
-
-    for folder_name in os.listdir(root_directory):
-        folder_path = os.path.join(root_directory, folder_name)
-
-        if os.path.isdir(folder_path) and folder_name.startswith("frame_"):
-            print(f"Processing folder: {folder_path}")
-
-            image_paths = []
-            image_names = []
-            images = []
-
-            for filename in os.listdir(folder_path):
-                img_path = os.path.join(folder_path, filename)
-                if os.path.isfile(img_path) and filename.lower().endswith(('.png', '.jpg', '.jpeg')): #added image type check
-                    img = cv2.imread(img_path)
-                    if img is not None:
-                        images.append(img)
-                        image_names.append(filename)
-                    else:
-                        print(f"Error reading image: {img_path}")
-
-            if images:
-                images_float = [img.astype(np.float32) for img in images]
-                average_image = np.mean(np.array(images_float), axis=0)
-
-                for i, img in enumerate(images):
-                    average_subtracted_image = img.astype(np.float32) - average_image
-                    average_subtracted_image = np.clip(average_subtracted_image, 0, 255).astype(np.uint8)
-
-                    base_name, ext = os.path.splitext(image_names[i])
-                    new_filename = f"{base_name}_average_subtracted{ext}"
-
-                    # Remove extension from folder name
-                    output_folder = os.path.join(root_directory, base_name)
-                    if not os.path.exists(output_folder):
-                        os.makedirs(output_folder)
-
-                    output_path = os.path.join(output_folder, new_filename)
-                    cv2.imwrite(output_path, average_subtracted_image)
-                    print(f"Average subtracted image saved to: {output_path}")
-
-                    # Optionally delete the original image
-
-            else:
-                print(f"No images found in folder: {folder_path}")
-
+        
 
 
 csv_file_path = 'E:/strangford/Images/Processed/combined_csv.csv'  # Replace with your CSV file path
@@ -456,7 +365,7 @@ files = os.listdir(folder_path)
 geotiff_files = [file for file in files if is_geotiff(file)]
 for file in geotiff_files:
     x,y =get_pixel_resolution(file)
-    print(x,y)
+    print(f"File: {file}, X Resolution: {x}, Y Resolution: {y}")
 #To keep track of image were on
 i=0
 
@@ -467,4 +376,3 @@ output_folder= 'D:/all_mulroy_images_and_sonar/'
 # Process folders to create a stacked tensor of images and sonar
 process_frame_channels_in_subfolders(output_folder)
 
-#average_subtract_frame_folders_move(output_folder)
