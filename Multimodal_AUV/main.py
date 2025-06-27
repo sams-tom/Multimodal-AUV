@@ -83,7 +83,7 @@ def main(
     # 3. Model Definition and Initialization
     logging.info("Defining models...")
     models_dict = define_models(model_paths, device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
-    models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
+    #models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models moved to devices.")
     torch.cuda.empty_cache()
 
@@ -122,14 +122,14 @@ def main(
    # 6. Load and Check Multimodal Model
     logging.info("Attempting to load multimodal model...")
 
-    if load_and_fix_state_dict(models_dict['multimodal_model'], multimodal_model_path, devices[0]):
-      logging.info("Multimodal model loaded successfully.")
-    else:
-      logging.warning("Multimodal model loading failed or file not found.")
+    #if load_and_fix_state_dict(models_dict['multimodal_model'], multimodal_model_path, devices[0]):
+    #  logging.info("Multimodal model loaded successfully.")
+    #else:
+    #  logging.warning("Multimodal model loading failed or file not found.")
 
-    if not check_model_devices(models_dict['multimodal_model'], devices[0]):
-       logging.error("Multimodal model is not on expected device.")
-       return
+    #if not check_model_devices(models_dict['multimodal_model'], devices[0]):
+    #   logging.error("Multimodal model is not on expected device.")
+    #   return
 
     ##7. Run Base Multimodal Training
     #logging.info("Starting base multimodal training...")
@@ -187,26 +187,88 @@ def main(
     logging.info("Starting final inference across survey datasets...")
     # 6. Load and Check Multimodal Model
     logging.info("Attempting to load multimodal model...")
+    from huggingface_hub import hf_hub_download
+    import json
+    try:
+        multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
+        multimodal_model_hf_subfolder = "multimodal-bnn"
+        # Download BNN prior parameters for informational purposes (optional, not strictly needed for model load)
+        # Downlod the main model weights file (e.g., pytorch_model.bin
+        model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin") # <--- Gets the filename
+        model_weights_path = hf_hub_download( # <--- THIS DOWNLOADS THE FILE
+        repo_id=multimodal_model_hf_repo_id,
+        filename=model_weights_filename
+        )
+        logging.info(f"Multimodal model weights downloaded to: {model_weights_path}")
+        # MANUALLY INSTANTIATE YOUR MULTIMODALMODEL CLASS
+        multimodal_model = models_dict["multimodal_model"] # <--- INSTANTIATES YOUR LOCAL MODEL
+        multimodal_model.to(device[0]) # Move model to the primary device
+ # --- DIRECTLY LOAD STATE DICT (WITHOUT load_and_fix_state_dict) ---
+        logging.info(f"Attempting to load state_dict directly into multimodal_model from {model_weights_path}")
+        from collections import OrderedDict
 
-    if load_and_fix_state_dict(models_dict['multimodal_model'], multimodal_model_path, devices[0]):
-      logging.info("Multimodal model loaded successfully.")
-    else:
-      logging.warning("Multimodal model loading failed or file not found.")
+        try:
+            raw_state_dict = torch.load(model_weights_path, map_location=device[0])
+            print(multimodal_model)
+            # Create a new state_dict with adjusted keys
+            new_state_dict = OrderedDict()
+            for k, v in raw_state_dict.items():
+                # First, handle the 'module.' prefix if it exists (from DataParallel/DDP)
+                if k.startswith('module.'):
+                    k = k[7:] # Remove 'module.' prefix
 
-    if not check_model_devices(models_dict['multimodal_model'], devices[0]):
-       logging.error("Multimodal model is not on expected device.")
-       return
+                # Now, handle the specific 'image_model_feat.model.' prefix
+                if k.startswith('image_model_feat.model.'):
+                    name = k.replace('image_model_feat.model.', 'image_model_feat.', 1) # Replace only the first occurrence
+                elif k.startswith('sss_model_feat.model.'):
+                    name = k.replace('sss_model_feat.model.', 'sss_model_feat.', 1) # Replace only the first occurrence
+                elif k.startswith('bathy_model_feat.model.'):
+                    name = k.replace('bathy_model_feat.model.', 'bathy_model_feat.', 1) # Replace only the first occurrence
+                else:
+                    name = k # Keep the key as is if it doesn't match
+
+                new_state_dict[name] = v
+
+            # Now load the modified state_dict
+            # Try strict=True first to catch any remaining mismatches
+            load_result = multimodal_model.load_state_dict(new_state_dict, strict=True)
+
+            missing_keys = load_result.missing_keys
+            unexpected_keys = load_result.unexpected_keys
+
+            if missing_keys:
+                logging.warning(f"WARNING: The following keys were MISSING in the loaded state_dict compared to the model's state_dict:")
+                for key in missing_keys:
+                    logging.warning(f"  - {key}")
+            else:
+                logging.info("No missing keys found in the loaded state_dict.")
+
+            if unexpected_keys:
+                logging.warning(f"WARNING: The following keys were UNEXPECTED in the loaded state_dict (i.e., present in the loaded weights but not in the model):")
+                for key in unexpected_keys:
+                    logging.warning(f"  - {key}")
+            else:
+                logging.info("No unexpected keys found in the loaded state_dict.")
+
+            if not missing_keys and not unexpected_keys:
+                logging.info("Model state_dict loaded successfully with no missing or unexpected keys.")
+            else:
+                logging.info("Model state_dict loaded with some discrepancies. Check warnings above.")
+        except Exception as e:
+                    logging.error(f"An error occurred during state_dict loading: {e}")
+    except Exception as e:
+            logging.error(f"An error occurred during state_dict loading: {e}")
     dataloader_whole_survey = prepare_inference_datasets_and_loaders(strangford_dir, mulroy_dir, training_params["batch_size_unimodal"])
     multimodal_predict_and_save(
-        multimodal_model = models_dict['multimodal_model'],
-        dataloader = multimodal_train_loader,
-        device = devices[0],
-        csv_path=f"{root_dir}whole_survey_resulrs.csv",
-        num_mc_samples= training_params["num_mc"],
-        sss_patch_type="",
-        channel_patch_type="",
-        model_type="multimodal"
-    )
+            multimodal_model = models_dict['multimodal_model'],
+            dataloader = dataloader_whole_survey,
+            device = devices[0],
+            csv_path=f"{root_dir}whole_survey_resulrs.csv",
+            num_mc_samples= training_params["num_mc"],
+            sss_patch_type="",
+            channel_patch_type="",
+            model_type="multimodal"
+        )
     logging.info("Final inference complete. Results saved.")
 if __name__ == "__main__":
     root_dir, models_dir, strangford_dir, mulroy_dir, device = setup_environment_and_devices()
