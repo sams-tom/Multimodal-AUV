@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Large model files to ignore after history purge
+models/bayesian_model_typebathy.pth
+models/bayesian_model_typeimage.pth
+models/bayesian_model_typesss.pth
+
