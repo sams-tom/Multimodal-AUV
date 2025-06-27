@@ -118,7 +118,8 @@ class CustomImageDataset_1(Dataset):
         return selected_sss
 
     def _find_bathy_image(self, folder_path):
-        path1 = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
+        path1 = os.path.join(folder_path, "patch_30m_combined_bathy.png")
+        print(path1)
         path2 = os.path.join(folder_path, "combined_bathy.jpg")
         if os.path.exists(path1):
             return path1

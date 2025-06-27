@@ -131,26 +131,27 @@ def main(
        logging.error("Multimodal model is not on expected device.")
        return
 
-    #7. Run Base Multimodal Training
-    logging.info("Starting base multimodal training...")
-    print("Starting base multimodal training...")
-    train_and_evaluate_multimodal_model(
-    train_loader=multimodal_train_loader,
-    test_loader=multimodal_test_loader,
-    multimodal_model=models_dict["multimodal_model"],
-    criterion=criterion,
-    optimizer=optimizers["multimodal_model"],
-    lr_scheduler=schedulers["multimodal_model"],
-    num_epochs=training_params["num_epochs_multimodal"],
-    device=devices[0],
-    model_type="multimodal",
-    bathy_patch_type=training_params["bathy_patch_base"],
-    sss_patch_type=training_params["sss_patch_base"],
-    csv_path=f"{root_dir}csvs/multimodal_results.csv",
-    num_mc=training_params["num_mc"],
-    sum_writer=sum_writer
-    )
-    logging.info("Base multimodal training complete.")
+    ##7. Run Base Multimodal Training
+    #logging.info("Starting base multimodal training...")
+    #print("Starting base multimodal training...")
+    #train_and_evaluate_multimodal_model(
+    #train_loader=multimodal_train_loader,
+    #test_loader=multimodal_test_loader,
+    #multimodal_model=models_dict
+    #["multimodal_model"],
+    #criterion=criterion,
+    #optimizer=optimizers["multimodal_model"],
+    #lr_scheduler=schedulers["multimodal_model"],
+    #num_epochs=training_params["num_epochs_multimodal"],
+    #device=devices[0],
+    #model_type="multimodal",
+    #bathy_patch_type=training_params["bathy_patch_base"],
+    #sss_patch_type=training_params["sss_patch_base"],
+    #csv_path=f"{root_dir}csvs/",
+    #num_mc=training_params["num_mc"],
+    #sum_writer=sum_writer
+    #)
+    #logging.info("Base multimodal training complete.")
 
 
     #Check and its running up to here
@@ -184,10 +185,21 @@ def main(
 
     # 9. Final Inference
     logging.info("Starting final inference across survey datasets...")
+    # 6. Load and Check Multimodal Model
+    logging.info("Attempting to load multimodal model...")
+
+    if load_and_fix_state_dict(models_dict['multimodal_model'], multimodal_model_path, devices[0]):
+      logging.info("Multimodal model loaded successfully.")
+    else:
+      logging.warning("Multimodal model loading failed or file not found.")
+
+    if not check_model_devices(models_dict['multimodal_model'], devices[0]):
+       logging.error("Multimodal model is not on expected device.")
+       return
     dataloader_whole_survey = prepare_inference_datasets_and_loaders(strangford_dir, mulroy_dir, training_params["batch_size_unimodal"])
     multimodal_predict_and_save(
         multimodal_model = models_dict['multimodal_model'],
-        dataloader = dataloader_whole_survey,
+        dataloader = multimodal_train_loader,
         device = devices[0],
         csv_path=f"{root_dir}whole_survey_resulrs.csv",
         num_mc_samples= training_params["num_mc"],

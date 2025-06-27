@@ -223,7 +223,7 @@ def train_and_evaluate_multimodal_model(
             num_mc=num_mc,
            bathy_patch_type=bathy_patch_type,
             sss_patch_type=sss_patch_type,
-            csv_path=csv_path,
+            csv_path=os.path.join(csv_path, f"multimodal_training.csv"),
             sum_writer=sum_writer
         )
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Training complete.")
@@ -236,7 +236,7 @@ def train_and_evaluate_multimodal_model(
             epoch=epoch, 
             total_num_epochs= num_epochs,
             num_mc =num_mc,
-            csv_path=csv_path, 
+            csv_path=os.path.join(csv_path, f"multimodal_test.csv"),
             bathy_patch_type=bathy_patch_type,
             sss_patch_type=sss_patch_type,
             model_type=model_type

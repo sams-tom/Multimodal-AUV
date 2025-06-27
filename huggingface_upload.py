@@ -1,75 +1,22 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet50, ResNet50_Weights
-import torch.nn.functional as F
-from huggingface_hub import PyTorchModelHubMixin # NEW: Import the mixin
-
-# Identity class (as you provided) - keep it, MultiModalModel might use it
-class Identity(nn.Module):
-    def forward(self, x):
-        return x
-
-# AdditiveAttention (as you provided) - keep it, MultiModalModel uses it
-class AdditiveAttention(nn.Module):
-    def __init__(self, d_model, hidden_dim=128):
-        super(AdditiveAttention, self).__init__()
-        self.query_projection = nn.Linear(d_model, hidden_dim)
-        self.key_projection = nn.Linear(d_model, hidden_dim)
-        self.value_projection = nn.Linear(d_model, hidden_dim)
-        self.attention_mechanism = nn.Linear(hidden_dim, hidden_dim)
-
-    def forward(self, query):
-        keys = self.key_projection(query)
-        values = self.value_projection(query)
-        queries = self.query_projection(query)
-
-        attention_scores = torch.tanh(queries + keys)
-        attention_weights = F.softmax(self.attention_mechanism(attention_scores), dim=1)
-
-        attended_values = values * attention_weights
-        return attended_values
-
-# ResNet50Custom (Modified to include PyTorchModelHubMixin and config, no is_feature_extractor)
-class ResNet50Custom(nn.Module, PyTorchModelHubMixin): # Inherit from PyTorchModelHubMixin
-    def __init__(self, input_channels: int, num_classes: int): # Added type hints for clarity
-        super(ResNet50Custom, self).__init__()
-
-        # Store config for PyTorchModelHubMixin to serialize to config.json
-        # These are the parameters needed to re-instantiate the model.
-        self.config = {
-            "input_channels": input_channels,
-            "num_classes": num_classes,
-        }
-
-        self.input_channels = input_channels # Keep this if you use it elsewhere
-
-        # Load pretrained ResNet50 model
-        self.model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-
-        # Modify the first convolutional layer to accept custom input channels
-        self.model.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-
-        # Replace the final fully connected layer to match the number of classes
-        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
-
-    def forward(self, x):
-        return self.model(x)
-
-    def get_feature_size(self):
-        return self.model.fc.in_features
-
-
-import torch
-import torch.nn as nn
 import os
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple, List # Keep imports for load_and_fix_state_dict if you re-add it
 
-from huggingface_hub import HfApi, create_repo
+from huggingface_hub import HfApi, create_repo, login
+from huggingface_hub.utils import HfHubHTTPError
+from huggingface_hub import PyTorchModelHubMixin # Import the mixin
 
-# Import your custom models from your package
-# Make sure the path is correct relative to where you run this script
+# NEW: Import your custom models from the new file
+# Adjust this import based on where you save model_definitions.py
+# If it's in the same directory as this script:
+from model_definitions import Identity, AdditiveAttention, ResNet50Custom, MultiModalModel
+# If it's in Multimodal_AUV/models/:
+# from Multimodal_AUV.models.model_definitions import Identity, AdditiveAttention, ResNet50Custom, MultiModalModel
+
+# Assuming dnn_to_bnn is correctly implemented in your bayesian_torch.models.dnn_to_bnn
 from bayesian_torch.models.dnn_to_bnn import dnn_to_bnn
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -77,78 +24,181 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- Configuration ---
 YOUR_HF_USERNAME = "sams-tom" # <--- IMPORTANT: CHANGE THIS TO YOUR ACTUAL USERNAME!
 
-
 # Define your constant BNN prior parameters.
-# These MUST be the exact parameters used during the original dnn_to_bnn conversion when training.
 const_bnn_prior_parameters = {
-        "prior_mu": 0.0,
-        "prior_sigma": 1.0,
-        "posterior_mu_init": 0.0,
-        "posterior_rho_init": -3.0,
-        "type": "Reparameterization",
-        "moped_enable": True,
-        "moped_delta": 0.1,
-    }
+    "prior_mu": 0.0,
+    "prior_sigma": 1.0,
+    "posterior_mu_init": 0.0,
+    "posterior_rho_init": -3.0,
+    "type": "Reparameterization",
+    "moped_enable": True,
+    "moped_delta": 0.1,
+}
 
-# The number of classes these models classify into.
-# This should be the 'num_classes' that was passed to ResNet50Custom during their training.
-# Assuming this is 'num_classes' from your main.py setup.
 COMMON_NUM_CLASSES = 7 # <--- Adjust this to your actual num_classes
 
-# Define the paths to your *existing* .pth files and their corresponding model configurations
-# Use the paths from your `model_paths` dictionary in your `main.py`.
-model_configs_for_upload = {
-    "image_model": {
-        "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typeimage.pth", # <--- CHANGE THIS!
-        "init_params": {"input_channels": 3, "num_classes": COMMON_NUM_CLASSES},
-        "repo_id": f"{YOUR_HF_USERNAME}/multimodal-auv-image-bnn-classifier",
-        "description": "Bayesian ResNet50 Classifier for AUV image data.",
-        "subfolder_name": "image_model"
+# Configure a specific logger for the load_and_fix_state_dict function to control its output
+_load_logger = logging.getLogger('load_and_fix_state_dict_logger')
+_load_logger.setLevel(logging.INFO)
+if not _load_logger.handlers: # Prevent adding handlers multiple times
+    _load_logger.addHandler(logging.NullHandler()) # Default to NullHandler if no other handlers are configured
 
-    },
-    "bathy_model": {
-        "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typebathy.pth", # <--- CHANGE THIS!
-        "init_params": {"input_channels": 3, "num_classes": COMMON_NUM_CLASSES},
-        "repo_id": f"{YOUR_HF_USERNAME}/multimodal-auv-bathy-bnn-classifier",
-        "description": "Bayesian ResNet50 Classifier for AUV bathymetry data.",
-        "subfolder_name": "bathy_model"
+def load_and_fix_state_dict(model: nn.Module, model_path: str, device: torch.device, model_key_name: str) -> Tuple[bool, List[str]]:
+    """
+    Loads a model state dictionary from a file and adapts keys to match the given model's keys.
+    It handles 'module.' prefixes from DataParallel and attempts to fix common nested prefixes
+    like 'image_model_feat.conv1' -> 'image_model_feat.model.conv1' for Bayesian ResNet sub-modules
+    within the MultiModalModel.
 
-    },
-    "sss_model": {
-        "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typesss.pth", # <--- CHANGE THIS!
-        "init_params": {"input_channels": 1, "num_classes": COMMON_NUM_CLASSES}, # SSS is 1 channel
-        "repo_id": f"{YOUR_HF_USERNAME}/multimodal-auv-sss-bnn-classifier",
-        "description": "Bayesian ResNet50 Classifier for AUV side-scan sonar data.",
-        "subfolder_name": "sss_model"
-    },
-}
-from huggingface_hub import login
+    Args:
+        model (nn.Module): The target PyTorch model instance (already initialized and possibly BNN-converted).
+        model_path (str): Path to the saved model file.
+        device (torch.device): The device to load the model onto (e.g., 'cpu', 'cuda').
+        model_key_name (str): The key name for the model (e.g., "multimodal_model", "image_model")
+                              to apply specific remapping logic.
+
+    Returns:
+        Tuple[bool, List[str]]:
+            - bool: True if the model state_dict was successfully loaded, False otherwise.
+            - List[str]: A list of strings, each describing a skipped/remapped layer and the reason.
+    """
+    skipped_layers_details: List[str] = []
+
+    if not os.path.exists(model_path):
+        _load_logger.warning(f"Model checkpoint not found at: {model_path}. Skipping load.")
+        return False, ["Model checkpoint not found."]
+
+    _load_logger.info(f"Attempting to load state dict from: {model_path}")
+
+    try:
+        state_dict_from_checkpoint = torch.load(model_path, map_location=device)
+        model_state_dict = model.state_dict() # Get current model's state_dict keys
+
+        new_state_dict_for_load: Dict[str, torch.Tensor] = {}
+
+        # First pass: Build the new_state_dict with remapped keys
+        for k_checkpoint, v_checkpoint in state_dict_from_checkpoint.items():
+            current_k = k_checkpoint
+
+            # 1. Handle 'module.' prefix (from DataParallel)
+            if current_k.startswith('module.'):
+                current_k = current_k[len('module.'):]
+
+            # 2. Handle nested 'model.' prefix for feature extractors within MultiModalModel
+            remapped_k = current_k
+            if model_key_name == "multimodal_model": # Apply this specific remapping only for the multimodal model
+                if current_k.startswith('image_model_feat.') and 'model.' not in current_k.split('image_model_feat.')[1]:
+                    remapped_k = current_k.replace('image_model_feat.', 'image_model_feat.model.', 1)
+                    _load_logger.debug(f"Remapping '{current_k}' to '{remapped_k}' (image_model_feat)")
+                elif current_k.startswith('bathy_model_feat.') and 'model.' not in current_k.split('bathy_model_feat.')[1]:
+                    remapped_k = current_k.replace('bathy_model_feat.', 'bathy_model_feat.model.', 1)
+                    _load_logger.debug(f"Remapping '{current_k}' to '{remapped_k}' (bathy_model_feat)")
+                elif current_k.startswith('sss_model_feat.') and 'model.' not in current_k.split('sss_model_feat.')[1]:
+                    remapped_k = current_k.replace('sss_model_feat.', 'sss_model_feat.model.', 1)
+                    _load_logger.debug(f"Remapping '{current_k}' to '{remapped_k}' (sss_model_feat)")
+
+            # Now try to match remapped_k (or original k if no remapping) to the model_state_dict
+            if remapped_k in model_state_dict:
+                if v_checkpoint.shape == model_state_dict[remapped_k].shape:
+                    new_state_dict_for_load[remapped_k] = v_checkpoint
+                else:
+                    skipped_layers_details.append(
+                        f"Skipped key '{k_checkpoint}' (mapped to '{remapped_k}') due to shape mismatch: "
+                        f"checkpoint has {v_checkpoint.shape}, model expects {model_state_dict[remapped_k].shape}"
+                    )
+            else:
+                    # Check if the original key without remapping would have matched
+                    if current_k in model_state_dict:
+                        skipped_layers_details.append(
+                            f"Skipped key '{k_checkpoint}' due to remapping to '{remapped_k}', but original key '{current_k}' exists. "
+                            f"Consider if remapping is needed for this layer."
+                        )
+                    else:
+                        skipped_layers_details.append(
+                            f"Skipped key '{k_checkpoint}' (remapped to '{remapped_k}' or original if no remapping) "
+                            f"as target key is not found in the current model."
+                        )
+
+        # Attempt to load the state_dict
+        model.load_state_dict(new_state_dict_for_load, strict=False)
+
+        _load_logger.info("Model state_dict loaded successfully (possibly with skipped layers).")
+        if skipped_layers_details:
+            _load_logger.warning("Details of skipped/remapped layers during loading:")
+            for detail in skipped_layers_details:
+                _load_logger.warning(detail)
+        else:
+            _load_logger.info("No layers were skipped or remapped during loading.")
+
+        return True, skipped_layers_details
+
+    except Exception as e:
+        _load_logger.error(f"An unexpected error occurred while loading state_dict for {model_path}: {e}", exc_info=True)
+        return False, skipped_layers_details # Return False and any collected details on error
+
 # --- Hugging Face API setup ---
-API_TOKEN = "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"
+API_TOKEN = "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" # Replace with your actual token
 try:
     login(token=API_TOKEN)
     logging.info("Successfully logged into Hugging Face Hub.")
 except Exception as e:
     logging.error(f"Failed to log in: {e}")
-    exit()
+    exit() # Exit if login fails
 
-api = HfApi( token=API_TOKEN)
+api = HfApi(token=API_TOKEN)
 device = torch.device("cpu") # Process on CPU for upload safety and portability
-MAIN_HUB_REPO_ID = "sams-tom/multimodal-auv-bathy-bnn-classifier"
+MAIN_HUB_REPO_ID = f"{YOUR_HF_USERNAME}/multimodal-auv-bathy-bnn-classifier"
 
-# --- Main Upload Loop ---
+
+
+# Define the paths to your *existing* .pth files and their corresponding model configurations
+model_configs_for_upload = {
+     "image_model": {
+         "class": ResNet50Custom,
+         "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typeimage.pth",
+         "init_params": {"input_channels": 3, "num_classes": COMMON_NUM_CLASSES},
+         "description": "Bayesian ResNet50 Classifier for AUV image data.",
+         "subfolder_name": "unimodal-image-bnn"
+     },
+     "bathy_model": {
+         "class": ResNet50Custom,
+         "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typebathy.pth",
+         "init_params": {"input_channels": 3, "num_classes": COMMON_NUM_CLASSES},
+         "description": "Bayesian ResNet50 Classifier for AUV bathymetry data.",
+         "subfolder_name": "unimodal-bathy-bnn"
+     },
+     "sss_model": {
+         "class": ResNet50Custom,
+         "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typesss.pth",
+         "init_params": {"input_channels": 1, "num_classes": COMMON_NUM_CLASSES}, # SSS is 1 channel
+         "description": "Bayesian ResNet50 Classifier for AUV side-scan sonar data.",
+         "subfolder_name": "unimodal-sss-bnn"
+     },
+    "multimodal_model": { # NEW ENTRY for your MultiModalModel
+        "class": MultiModalModel,
+        "pth_path": "D:/2506 bayes results new labelling/models/bayesian_model_typemultimodal_bathy_patch30_sss_patch30.pth", # Your combined model path
+        "init_params": {
+            "image_input_channels": 3,
+            "bathy_input_channels": 3,
+            "sss_input_channels": 1,
+            "num_classes": COMMON_NUM_CLASSES,
+            "attention_type": "scaled_dot_product"
+        },
+        "description": "Bayesian MultiModal Classifier for AUV image, bathymetry, and side-scan sonar data.",
+        "subfolder_name": "multimodal-bnn"
+    }
+}
+
 # --- Main Upload Loop ---
 for model_key, model_info in model_configs_for_upload.items():
     logging.info(f"\n--- Processing {model_key} from {model_info['pth_path']} ---")
 
     pth_path = model_info["pth_path"]
-    model_class = ResNet50Custom # Always ResNet50Custom for these models
+    model_class = model_info["class"]
     init_params = model_info["init_params"]
     description = model_info["description"]
-    subfolder_name = model_info["subfolder_name"] # Get the unique subfolder name
+    subfolder_name = model_info["subfolder_name"]
 
-    # Define the FULL repository ID for the upload (main repo ID)
-    # The actual repo_id for the upload is always the main one
     repo_id_for_upload = MAIN_HUB_REPO_ID
 
     if not os.path.exists(pth_path):
@@ -156,77 +206,71 @@ for model_key, model_info in model_configs_for_upload.items():
         continue
 
     try:
-        # 1. Instantiate the base model (non-Bayesian yet) using the parameters from init_params
         model_instance = model_class(**init_params).to(device)
         logging.info(f"Instantiated {model_key} with init_params: {init_params}")
-        print(f"Is model_instance an instance of PyTorchModelHubMixin? {isinstance(model_instance, PyTorchModelHubMixin)}")
+        print(f"Is {model_key} an instance of PyTorchModelHubMixin? {isinstance(model_instance, PyTorchModelHubMixin)}")
 
-        # 2. Convert the instantiated model to a Bayesian Neural Network
         dnn_to_bnn(model_instance, const_bnn_prior_parameters)
         logging.info(f"Converted {model_key} to BNN architecture.")
-        print(f"Is model_instance an instance of PyTorchModelHubMixin? {isinstance(model_instance, PyTorchModelHubMixin)}")
 
-        # 3. Load the state_dict from your .pth file
-        state_dict = torch.load(pth_path, map_location=device)
+        # Use the robust load_and_fix_state_dict function
+        success, skipped_details = load_and_fix_state_dict(model_instance, pth_path, device, model_key)
 
-        # Handle 'module.' prefix from DataParallel if it exists in your .pth
-        new_state_dict = {}
-        for k, v in state_dict.items():
-            if k.startswith('module.'):
-                new_state_dict[k[7:]] = v
-            else:
-                new_state_dict[k] = v
+        if not success:
+            logging.error(f"Failed to load state_dict for {model_key}. Skipping upload.")
+            if skipped_details:
+                logging.error("Skipped/Error details:")
+                for detail in skipped_details:
+                    logging.error(f"  - {detail}")
+            continue
 
-        model_instance.load_state_dict(new_state_dict)
-        model_instance.eval() # Set to evaluation mode for inference
-        logging.info(f"Loaded .pth weights into {model_key} BNN instance.")
+        model_instance.eval()
 
-        # --- Now, prepare local directory for Hugging Face upload ---
-        # Create a local directory for this specific model's files
-        local_model_temp_dir = f"./hf_upload_temp/{model_key.replace('_', '-')}"
+        local_model_temp_dir = f"./hf_upload_temp/{subfolder_name}"
         os.makedirs(local_model_temp_dir, exist_ok=True)
         logging.info(f"Created temporary local directory for {model_key}: {local_model_temp_dir}")
 
-        # 4. Save the model locally in Hugging Face format
-        # This saves 'pytorch_model.bin' (BNN weights) and 'config.json' (from model_instance.config)
         model_instance.save_pretrained(local_model_temp_dir)
         logging.info(f"Model {model_key} saved locally to {local_model_temp_dir}")
 
-        # 5. Save BNN prior parameters (essential for users to convert back to BNN on load)
         bnn_params_file = os.path.join(local_model_temp_dir, "bnn_params.json")
         with open(bnn_params_file, "w") as f:
             json.dump(const_bnn_prior_parameters, f, indent=4)
         logging.info(f"BNN prior parameters saved to {bnn_params_file}")
 
-        # 6. Upload your custom model definition file(s) for `trust_remote_code=True`
-        # This file will be uploaded directly to the root of the main repo, as it's shared.
-        local_base_models_path = "Multimodal_AUV/models/base_models.py"
-        base_models_path_in_repo = "base_models.py" # Will be at the root of MAIN_HUB_REPO_ID
+        # >>>>>> IMPORTANT: ENSURE THIS PATH IS CORRECT FOR YOUR LOCAL `model_definitions.py` <<<<<<
+        # This path should point to the model_definitions.py file you created in Step 1.
+        # If model_definitions.py is in the same directory as this script:
+        local_model_definition_file = "model_definitions.py"
+        # If it's in a subdirectory, e.g., 'my_project/models/model_definitions.py':
+        # local_model_definition_file = "my_project/models/model_definitions.py"
 
-        if os.path.exists(local_base_models_path):
+
+        path_in_repo_for_definitions = "model_definitions.py" # This will be at the root of the HF repo
+
+        if os.path.exists(local_model_definition_file):
             api.upload_file(
-                path_or_fileobj=local_base_models_path,
-                path_in_repo=base_models_path_in_repo, # Upload to the root of the main repo
-                repo_id=repo_id_for_upload, # Use the main repo ID
-                commit_message=f"Add base_models.py for BNN custom models",
+                path_or_fileobj=local_model_definition_file,
+                path_in_repo=path_in_repo_for_definitions,
+                repo_id=repo_id_for_upload,
+                commit_message=f"Add custom model definitions ({path_in_repo_for_definitions})",
             )
-            logging.info(f"Uploaded {base_models_path_in_repo} to main repo.")
+            logging.info(f"Uploaded {path_in_repo_for_definitions} to main repo.")
         else:
-            logging.warning(f"Could not find {local_base_models_path}. Users will need to provide model definition locally.")
+            # This warning means the file was not found locally.
+            # To avoid this warning, make sure local_model_definition_file points to the correct file.
+            logging.error(f"ERROR: Could not find {local_model_definition_file}. Model definitions will NOT be available via `trust_remote_code=True` without local code.")
+            logging.error("Please verify the path to your model_definitions.py file.")
 
 
-        # 7. Push the content of the *local model's temporary directory* to a *subfolder* in the main Hub repo
-        # This is the key change for placing files in subfolders.
         api.upload_folder(
             folder_path=local_model_temp_dir,
-            path_in_repo=subfolder_name, # <-- This tells it to put files into a subfolder
-            repo_id=repo_id_for_upload, # Use the main repo ID
-            commit_message=f"Upload {model_key} (Bayesian ResNet50 Classifier)",
-            # delete_pointer_files=True # Uncomment if you have LFS pointer files that need to be deleted locally after upload
+            path_in_repo=subfolder_name,
+            repo_id=repo_id_for_upload,
+            commit_message=f"Upload {model_key} ({description})",
         )
         logging.info(f"Successfully pushed {model_key} to subfolder '{subfolder_name}' in https://huggingface.co/{repo_id_for_upload}")
 
-        # Optional: Clean up the local temporary directory after successful upload
         import shutil
         shutil.rmtree(local_model_temp_dir)
         logging.info(f"Cleaned up local temporary directory: {local_model_temp_dir}")
@@ -234,4 +278,4 @@ for model_key, model_info in model_configs_for_upload.items():
     except Exception as e:
         logging.error(f"Failed to process and upload {model_key}: {e}", exc_info=True)
 
-logging.info("\n--- All specified unimodal models processed. ---")
+logging.info("\n--- All specified models processed. ---")
