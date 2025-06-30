@@ -16,10 +16,10 @@ from Multimodal_AUV.train.loop_utils import train_and_evaluate_unimodal_model, t
 from Multimodal_AUV.train.checkpointing import load_and_fix_state_dict
 from Multimodal_AUV.inference.inference_data import prepare_inference_datasets_and_loaders
 from Multimodal_AUV.inference.predictors import multimodal_predict_and_save
+from Multimodal_AUV.config.paths import get_empty_gpus
 
 def main(
     const_bnn_prior_parameters: Dict[str, Any],
-    multimodal_model_path: str,
     optimizer_params: Dict[str, Dict[str, Any]],
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
@@ -64,15 +64,14 @@ def main(
     logging.info(f"Using device: {str(devices)}") # Adjusted for single device
     # 2. Dataset and DataLoader Preparation
     logging.info("Preparing datasets and data loaders...")
-    unimodal_train_loader, unimodal_test_loader, multimodal_train_loader, multimodal_test_loader, num_classes, dataset = prepare_datasets_and_loaders(root_dir, batch_size_unimodal=training_params["batch_size_unimodal"], batch_size_multimodal=training_params["batch_size_multimodal"])
-    logging.info(f"Number of classes: {num_classes} | Dataset split: {len(unimodal_train_loader.dataset)} training samples, {len(unimodal_test_loader.dataset)} test samples")
+    _, _, multimodal_train_loader, multimodal_test_loader, num_classes, _ = prepare_datasets_and_loaders(root_dir, batch_size_unimodal=training_params["batch_size_unimodal"], batch_size_multimodal=training_params["batch_size_multimodal"])
+    logging.info(f"Number of classes: {num_classes}")
 
     # 3. Model Definition and Initialization
     logging.info("Defining models...")
-    models_dict = define_models(device=devices, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
-    # The original code had a commented out line for move_models_to_device.
-    # If you intend to use multiple GPUs, you'll need to uncomment and configure it.
-    # models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
+    models_dict = define_models(device=devices[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+   
+    models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models defined and will be moved to device during training/inference as needed.")
     torch.cuda.empty_cache()
 
@@ -80,26 +79,6 @@ def main(
     logging.info("Setting up criterion, optimizers and schedulers...")
     criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
     
-    # 6. Load and Check Multimodal Model
-    logging.info("Attempting to load multimodal model...")
-
-    # Load and fix state dictionary, if a path is provided and it exists.
-    # For training from scratch, you might want to skip this or handle it differently.
-    if multimodal_model_path and os.path.exists(multimodal_model_path):
-        if load_and_fix_state_dict(models_dict['multimodal_model'], multimodal_model_path, devices):
-            logging.info("Multimodal model loaded successfully.")
-        else:
-            logging.warning("Multimodal model loading failed or file not found at specified path. Training from scratch.")
-    else:
-        logging.info("No pre-trained multimodal model path provided or path does not exist. Training multimodal model from scratch.")
-
-
-    if not check_model_devices(models_dict['multimodal_model'], devices):
-        logging.error("Multimodal model is not on expected device.")
-        # Decide if you want to exit or try to move it. For now, we'll exit.
-        sys.exit(1)
-
-
     # 7. Run Base Multimodal Training
     logging.info("Starting base multimodal training...")
     print("Starting base multimodal training...")
@@ -111,7 +90,7 @@ def main(
         optimizer=optimizers["multimodal_model"],
         lr_scheduler=schedulers["multimodal_model"],
         num_epochs=training_params["num_epochs_multimodal"],
-        device=devices, # Changed to single device
+        device=devices[0], # Changed to single device
         model_type="multimodal",
         bathy_patch_type=training_params["bathy_patch_base"],
         sss_patch_type=training_params["sss_patch_base"],
@@ -128,30 +107,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a multimodal AUV model.")
     parser.add_argument('--root_dir', type=str, default='./data/',
                         help='Root directory for datasets and outputs.')
-    parser.add_argument('--strangford_dir', type=str, default='./data/Strangford/',
-                        help='Directory for Strangford dataset.')
-    parser.add_argument('--mulroy_dir', type=str, default='./data/Mulroy/',
-                        help='Directory for Mulroy dataset.')
-    parser.add_argument('--multimodal_model_path', type=str, default=None,
-                        help='Path to a pre-trained multimodal model. If not provided or file does not exist, training will start from scratch.')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
                         help='Device to use for training (e.g., "cuda:0" or "cpu").')
-    parser.add_argument('--epochs_unimodal', type=int, default=30,
-                        help='Number of epochs for unimodal model training.')
     parser.add_argument('--epochs_multimodal', type=int, default=30,
                         help='Number of epochs for multimodal model training.')
     parser.add_argument('--num_mc', type=int, default=12,
                         help='Number of Monte Carlo samples for Bayesian models.')
-    parser.add_argument('--batch_size_unimodal', type=int, default=8,
-                        help='Batch size for unimodal training.')
     parser.add_argument('--batch_size_multimodal', type=int, default=12,
                         help='Batch size for multimodal training.')
-    parser.add_argument('--lr_image', type=float, default=1e-5,
-                        help='Learning rate for image model optimizer.')
-    parser.add_argument('--lr_bathy', type=float, default=0.01,
-                        help='Learning rate for bathymetry model optimizer.')
-    parser.add_argument('--lr_sss', type=float, default=1e-5,
-                        help='Learning rate for SSS model optimizer.')
     parser.add_argument('--lr_multimodal', type=float, default=5e-5,
                         help='Learning rate for multimodal model optimizer.')
 
@@ -165,9 +128,20 @@ if __name__ == "__main__":
     # For simplicity, assuming setup_environment_and_devices just returns the device
     # and other paths are handled by passing them directly to main.
     # If setup_environment_and_devices actually *sets* these paths, you'll need to adapt it.
-    device = torch.device(args.device)
 
-   
+     # Setup devices based on your utility function (using get_empty_gpus as defined or imported)
+    devices = []
+    if torch.cuda.is_available():
+        devices = get_empty_gpus(threshold_mb=1000) # You can adjust this threshold
+        if not devices:
+            print("No empty GPUs found or CUDA not available. Falling back to CPU.")
+            devices = [torch.device("cpu")]
+        else:
+            print(f"Selected empty GPUs: {[str(d) for d in devices]}")
+    else:
+        devices = [torch.device("cpu")]
+        print("CUDA not available. Using CPU.")
+
 
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
@@ -180,9 +154,9 @@ if __name__ == "__main__":
     }
 
     optimizer_params = {
-        "image_model": {"lr": args.lr_image},
-        "bathy_model": {"lr": args.lr_bathy},
-        "sss_model": {"lr": args.lr_sss},
+        "image_model": {"lr": 1e-5},
+        "bathy_model": {"lr": 0.01},
+        "sss_model": {"lr": 1e-5},
         "multimodal_model": {"lr": args.lr_multimodal}
     }
 
@@ -194,26 +168,22 @@ if __name__ == "__main__":
     }
 
     training_params = {
-        "num_epochs_unimodal": args.epochs_unimodal,
+        "num_epochs_unimodal": 1,
         "num_epochs_multimodal": args.epochs_multimodal,
         "num_mc": args.num_mc,
         "bathy_patch_base": "patch_30_bathy",
         "sss_patch_base": "patch_30_sss",
         "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
         "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-        "batch_size_unimodal": args.batch_size_unimodal,
+        "batch_size_unimodal": 1,
         "batch_size_multimodal": args.batch_size_multimodal
     }
 
     main(
         const_bnn_prior_parameters,
-        args.multimodal_model_path, # Use the path from argparse
         optimizer_params,
         scheduler_params,
         training_params,
         args.root_dir,
-        args.models_dir,
-        args.strangford_dir,
-        args.mulroy_dir,
-        device
+        devices
     )

@@ -4,8 +4,9 @@ from rasterio.windows import Window
 from PIL import Image
 import csv
 import numpy as np # Added for potential array operations in extract_grid_patch
+from typing import Union
 
-def get_pixel_resolution(geotiff_path: str) -> tuple[float | None, float | None]:
+def get_pixel_resolution(geotiff_path: str) -> tuple[Union[float, None], Union[float, None]]:
     """
     Retrieves the pixel resolution (x and y) from a GeoTIFF file.
 

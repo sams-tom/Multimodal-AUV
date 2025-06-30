@@ -9,7 +9,7 @@ import sys
 
 # Import functions from your custom data_pipeline modules.
 # These modules are assumed to be located in a 'data_pipeline/' directory
-from Multimodal_AUV.data_preparation.utilities import is_geotiff, filter_csv_by_image_names, update_csv_path
+from  Multimodal_AUV.data_preparation.utilities import is_geotiff, filter_csv_by_image_names, update_csv_path
 from Multimodal_AUV.data_preparation.geospatial import get_pixel_resolution, extract_grid_patch
 from Multimodal_AUV.data_preparation.image_processing import process_frame_channels_in_subfolders
 
@@ -228,18 +228,7 @@ if __name__ == "__main__":
         default=20.0,
         help="The desired side length (in meters) for the square patches extracted from GeoTIFFs."
     )
-    parser.add_argument(
-        "--csv_old_path_prefix",
-        type=str,
-        default='C:/Users/phd01tm/OneDrive - SAMS/Strangford loch AUV data/AUV data/Images/',
-        help="The old path prefix in the CSV's 'path' column that needs to be replaced."
-             "Set to '' (empty string) if no replacement is needed or if paths are already correct."
-    )
-    parser.add_argument(
-        "--skip_path_update",
-        action="store_true",
-        help="If set, the CSV path update step (--csv_old_path_prefix and --original_images_base_folder) will be skipped."
-    )
+    
     parser.add_argument(
         "--skip_bathy_combine",
         action="store_true",
@@ -247,17 +236,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    # --- 1. Update CSV Paths (if needed) ---
-    if not args.skip_path_update:
-        print("\n--- Step 1: Updating CSV image paths (if necessary) ---")
-        if args.csv_old_path_prefix:
-            update_csv_path(args.csv_path, args.csv_old_path_prefix, args.original_images_base_folder)
-            print("CSV path update process completed.")
-        else:
-            print("No old path prefix provided (--csv_old_path_prefix is empty). Skipping CSV path update.")
-    else:
-        print("\n--- Step 1: Skipping CSV path update as requested. ---")
+    
 
 
     # --- 2. Identify GeoTIFF files and report resolutions ---
@@ -293,6 +272,3 @@ if __name__ == "__main__":
     else:
         print("\n--- Step 4: Skipping bathymetry channel combination as requested. ---")
 
-    # --- Optional/Unused Code (keep commented unless specifically needed) ---
-    # process_images(image_folder)
-    # process_main_directory(output_folder)
