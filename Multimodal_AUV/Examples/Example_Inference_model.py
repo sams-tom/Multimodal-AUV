@@ -36,19 +36,14 @@ def prepare_inference_dataloader(data_dir: str, batch_size: int) -> DataLoader:
         logging.error(f"Error preparing inference DataLoader from {data_dir}: {e}", exc_info=True)
         raise
 
-def load_and_prepare_multimodal_model(models_dir: str, downloaded_model_weights_path: str, device: torch.device) -> torch.nn.Module:
+def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, device: torch.device) -> torch.nn.Module:
     """
     Loads your MultimodalModel and its state_dict, adjusting keys if necessary.
     Takes the already downloaded model_weights_path.
     """
     logging.info("Attempting to load multimodal model...")
 
-    model_paths = {
-        "image": os.path.join(models_dir, "bayesian_model_type:image.pth"),
-        "bathy": os.path.join(models_dir, "bayesian_model_type:bathy.pth"),
-        "sss": os.path.join(models_dir, "bayesian_model_type:sss.pth"),
-        "multimodal": os.path.join(models_dir, "_bayesian_model_type:multimodal.pth") # Note: This might be redundant if the main weights are from HF
-    }
+   
     num_classes = 7 # Assuming fixed for this model, or pass as arg if variable
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
@@ -64,7 +59,7 @@ def load_and_prepare_multimodal_model(models_dir: str, downloaded_model_weights_
     # It seems to define individual Bayesian models and also your 'multimodal' model.
     # Ensure that `define_models` correctly sets up the multimodal architecture
     # that matches the `pytorch_model.bin` weights you're downloading.
-    models_dict_instances = define_models(model_paths, device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    models_dict_instances = define_models(device=device[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
 
     # Instantiate YOUR actual MultimodalModel class from the returned dictionary
     # Assuming define_models returns a dictionary where "multimodal" key gives the instantiated model
@@ -214,12 +209,7 @@ if __name__ == "__main__":
         default="./inference_results.csv",
         help="Path to save the inference results CSV. Default: './inference_results.csv'."
     )
-    parser.add_argument(
-        "--models_dir",
-        type=str,
-        required=True, # Still required for other model parts if define_models needs them
-        help="Path to the directory containing specific model definition files (e.g., individual Bayesian model parts like 'bayesian_model_type:image.pth')."
-    )
+
     parser.add_argument( # NEW: Add num_mc_samples argument
         "--num_mc_samples",
         type=int,
@@ -232,8 +222,6 @@ if __name__ == "__main__":
     # Call the main function with command-line arguments
     main(
         data_directory=args.data_dir,
-        models_dir= args.models_dir,
-        # model_weights_file is now handled internally by main function
         batch_size=args.batch_size,
         output_csv=args.output_csv,
         num_mc_samples=args.num_mc_samples # NEW: Pass num_mc_samples

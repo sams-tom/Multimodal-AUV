@@ -42,7 +42,7 @@ def load_and_prepare_multimodal_model_custom( model_weights_path: str, device: t
     }
     
     # This calls define_models from your project to get the model instances based on `models_dir`
-    models_dict_defined = define_models( device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    models_dict_defined = define_models( device=device[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     
     # Correctly access the instantiated MultimodalModel object from the dictionary
     # Assuming "multimodal_model" is the correct key used by your define_models.
@@ -71,7 +71,7 @@ def load_and_prepare_multimodal_model_custom( model_weights_path: str, device: t
 
         logging.debug(f"Adjusted state dict keys: {list(new_state_dict.keys())}")
 
-        load_result = multimodal_model.load_state_dict(new_state_dict, strict=True) 
+        load_result = multimodal_model.load_state_dict(new_state_dict, strict=False) 
 
         missing_keys = load_result.missing_keys
         unexpected_keys = load_result.unexpected_keys
