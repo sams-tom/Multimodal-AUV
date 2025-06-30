@@ -82,7 +82,7 @@ def main(
 
     # 3. Model Definition and Initialization
     logging.info("Defining models...")
-    models_dict = define_models(model_paths, device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    models_dict = define_models(device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     #models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models moved to devices.")
     torch.cuda.empty_cache()

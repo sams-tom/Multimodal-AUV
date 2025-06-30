@@ -19,7 +19,6 @@ from Multimodal_AUV.inference.predictors import multimodal_predict_and_save
 
 def main(
     const_bnn_prior_parameters: Dict[str, Any],
-    model_paths: Dict[str, str],
     multimodal_model_path: str,
     optimizer_params: Dict[str, Dict[str, Any]],
     scheduler_params: Dict[str, Dict[str, Any]],
@@ -73,7 +72,7 @@ def main(
 
     # 3. Model Definition and Initialization
     logging.info("Defining models...")
-    models_dict = define_models(model_paths, device=devices, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    models_dict = define_models(device=devices, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     # The original code had a commented out line for move_models_to_device.
     # If you intend to use multiple GPUs, you'll need to uncomment and configure it.
     # models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
@@ -159,8 +158,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a multimodal AUV model.")
     parser.add_argument('--root_dir', type=str, default='./data/',
                         help='Root directory for datasets and outputs.')
-    parser.add_argument('--models_dir', type=str, default='./models/',
-                        help='Directory to save and load models.')
     parser.add_argument('--strangford_dir', type=str, default='./data/Strangford/',
                         help='Directory for Strangford dataset.')
     parser.add_argument('--mulroy_dir', type=str, default='./data/Mulroy/',
@@ -200,13 +197,7 @@ if __name__ == "__main__":
     # If setup_environment_and_devices actually *sets* these paths, you'll need to adapt it.
     device = torch.device(args.device)
 
-    # Re-define model_paths to use the models_dir from argparse
-    model_paths = {
-        "image": os.path.join(args.models_dir, "bayesian_model_type:image.pth"),
-        "bathy": os.path.join(args.models_dir, "bayesian_model_type:bathy.pth"),
-        "sss": os.path.join(args.models_dir, "bayesian_model_type:sss.pth"),
-        "multimodal": os.path.join(args.models_dir, "_bayesian_model_type:multimodal.pth")
-    }
+   
 
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
@@ -246,7 +237,6 @@ if __name__ == "__main__":
 
     main(
         const_bnn_prior_parameters,
-        model_paths,
         args.multimodal_model_path, # Use the path from argparse
         optimizer_params,
         scheduler_params,

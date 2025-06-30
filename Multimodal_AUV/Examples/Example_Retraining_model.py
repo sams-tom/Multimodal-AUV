@@ -5,7 +5,8 @@ from torch.utils.data import DataLoader
 from collections import OrderedDict
 import datetime
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Tuple # Added Tuple for type hints
+from huggingface_hub import hf_hub_download
 
 # Assuming these are your project-specific imports.
 # Please ensure MultimodalModel is accessible, e.g., defined in models.model_utils
@@ -27,31 +28,21 @@ logger = logging.getLogger(__name__)
 # This function remains exactly as you provided its logic.
 # I've kept the internal rename `load_and_prepare_multimodal_model_custom` for distinctness in this file,
 # but its functionality is precisely what you supplied.
-def load_and_prepare_multimodal_model_custom(models_dir: str, model_weights_path: str, device: torch.device):
+def load_and_prepare_multimodal_model_custom( model_weights_path: str, device: torch.device):
     """
     Loads your MultimodalModel and its state_dict, adjusting keys if necessary, exactly as provided.
     """
     logging.info("Attempting to load multimodal model using provided custom loader...")
 
-    model_paths = {
-        "image": os.path.join(models_dir, "bayesian_model_type:image.pth"),
-        "bathy": os.path.join(models_dir, "bayesian_model_type:bathy.pth"),
-        "sss": os.path.join(models_dir, "bayesian_model_type:sss.pth"),
-        "multimodal": os.path.join(models_dir, "_bayesian_model_type:multimodal.pth")
-    }
-    num_classes = 7
+    num_classes = 7 # Still assuming fixed, adjust if needed
     const_bnn_prior_parameters = {
-        "prior_mu": 0.0,
-        "prior_sigma": 1.0,
-        "posterior_mu_init": 0.0,
-        "posterior_rho_init": -3.0,
-        "type": "Reparameterization",
-        "moped_enable": True,
-        "moped_delta": 0.1,
+        "prior_mu": 0.0, "prior_sigma": 1.0, "posterior_mu_init": 0.0,
+        "posterior_rho_init": -3.0, "type": "Reparameterization",
+        "moped_enable": True, "moped_delta": 0.1,
     }
     
-    # This calls define_models from your project to get the model instances
-    models_dict_defined = define_models(model_paths, device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    # This calls define_models from your project to get the model instances based on `models_dir`
+    models_dict_defined = define_models( device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     
     # Correctly access the instantiated MultimodalModel object from the dictionary
     # Assuming "multimodal_model" is the correct key used by your define_models.
@@ -121,15 +112,11 @@ def load_and_prepare_multimodal_model_custom(models_dir: str, model_weights_path
 # --- Training Main Function (Streamlined) ---
 def training_main(
     const_bnn_prior_parameters: Dict[str, Any],
-    model_paths: Dict[str, str], # Paths used by define_models to create the structure
     multimodal_model_weights_path: str, # Path to your custom saved MultimodalModel weights
     optimizer_params: Dict[str, Dict[str, Any]],
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
-    root_dir: str,
-    models_dir: str,
-    strangford_dir: str,
-    mulroy_dir: str,
+    root_dir: str, # Now represents the single root for all training data
     devices: list
 ):
     # Setup logging as per your previous implementation
@@ -160,35 +147,29 @@ def training_main(
     logger.info(f"Using devices: {[str(d) for d in devices]}")
 
     logger.info("Preparing datasets and data loaders for training...")
-    unimodal_train_loader, unimodal_test_loader, multimodal_train_loader, multimodal_test_loader, num_classes, _ = \
+    # NEW: Only pass root_dir and batch_size_multimodal
+    # Expecting prepare_datasets_and_loaders to return (multimodal_train_loader, multimodal_test_loader, num_classes, _)
+    multimodal_train_loader, multimodal_test_loader, num_classes, _ = \
         prepare_datasets_and_loaders(
             root_dir=root_dir,
-            batch_size_unimodal=training_params["batch_size_unimodal"],
-            batch_size_multimodal=training_params["batch_size_multimodal"],
-            strangford_dir=strangford_dir,
-            mulroy_dir=mulroy_dir
+            batch_size_multimodal=training_params["batch_size_multimodal"]
         )
     logger.info(f"Number of classes: {num_classes}")
-    logger.info(f"Unimodal: {len(unimodal_train_loader.dataset)} training samples, {len(unimodal_test_loader.dataset)} test samples")
     logger.info(f"Multimodal: {len(multimodal_train_loader.dataset)} training samples, {len(multimodal_test_loader.dataset)} test samples")
 
     # --- Step 1: Load your custom MultimodalModel with its existing weights using YOUR function ---
     logger.info(f"Loading custom Multimodal Model from {multimodal_model_weights_path} using your provided 'load_and_prepare_multimodal_model_custom' function...")
     try:
-        multimodal_model_instance = load_and_prepare_multimodal_model_custom(models_dir, multimodal_model_weights_path, devices[0])
+        multimodal_model_instance = load_and_prepare_multimodal_model_custom( multimodal_model_weights_path, devices[0])
         logger.info("Custom Multimodal Model loaded successfully with its weights.")
     except Exception as e:
         logger.critical(f"FATAL ERROR: Could not load custom Multimodal Model from {multimodal_model_weights_path}. Cannot proceed with training. Error: {e}")
         sys.exit(1) # Exit if the base model cannot be loaded
 
     # --- Step 2: Prepare the models_dict for optimizers and device movement ---
-    # We now have the `multimodal_model_instance` ready.
-    # Create a dictionary suitable for `define_optimizers_and_schedulers` and `move_models_to_device`.
+    # Only include the multimodal model
     models_dict_for_training = {
         "multimodal_model": multimodal_model_instance
-        # If your training also includes separate unimodal models (e.g., if you call train_and_evaluate_unimodal_model),
-        # they would need to be instantiated here (e.g., via define_models) and added to this dictionary.
-        # For this request, we assume focus is solely on the multimodal model.
     }
 
     # Move model to devices (specifically the multimodal_model_instance)
@@ -203,7 +184,7 @@ def training_main(
 
     # --- Step 4: Run Multimodal Training using the loaded model instance ---
     logger.info("Starting multimodal training with the loaded custom model...")
-    print("Starting multimodal training...")
+    print("Starting multimodal training...") # Use print for immediate visibility
     train_and_evaluate_multimodal_model(
         train_loader=multimodal_train_loader,
         test_loader=multimodal_test_loader,
@@ -216,7 +197,7 @@ def training_main(
         model_type="multimodal",
         bathy_patch_type=training_params["bathy_patch_base"],
         sss_patch_type=training_params["sss_patch_base"],
-        csv_path=os.path.join(root_dir, "csvs"),
+        csv_path=os.path.join(root_dir, "csvs"), # Assumes csvs dir relative to root_dir
         num_mc=training_params["num_mc"],
         sum_writer=sum_writer
     )
@@ -225,68 +206,44 @@ def training_main(
     logger.info("TensorBoard writer closed.")
 
 
-# --- Orchestrating Main Function (Now ONLY for Training) ---
+# --- Orchestrating Main Function ---
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Run multimodal AUV model retraining.")
     
-    # Removed --mode as it's only training
     parser.add_argument(
-        "--data_dir",
-        type=str,
-        required=True, # Made required as it's root_dir for training data loaders
-        help="Path to the root directory containing the dataset for training."
-    )
-    parser.add_argument(
-        "--strangford_dir",
-        type=str,
-        required=True, # Made required as it's needed for prepare_datasets_and_loaders
-        help="Path to the Strangford dataset directory for training."
-    )
-    parser.add_argument(
-        "--mulroy_dir",
-        type=str,
-        required=True, # Made required as it's needed for prepare_datasets_and_loaders
-        help="Path to the Mulroy dataset directory for training."
-    )
-    parser.add_argument(
-        "--model_weights",
-        type=str,
-        required=True, # Still required for loading your base model weights
-        help="Path to the PyTorch model weights file for loading your custom MultimodalModel for retraining."
-    )
-    parser.add_argument(
-        "--models_dir",
+        "--data_dir", # Renamed to root_dir in `training_main` calls, but still `data_dir` for argparse
         type=str,
         required=True,
-        help="Path to the directory containing the model definition files (e.g., './Multimodal_AUV/models'). This is used by define_models."
+        help="Path to the root directory containing ALL multimodal dataset for training."
     )
+    # REMOVED: --strangford_dir and --mulroy_dir are no longer needed as separate args
+    
+    # NEW: model_weights argument now represents the Hugging Face repo ID (implicitly)
+    # or just signifies that we're using a downloaded model.
+    # We will hardcode the repo ID internally for simplicity based on your previous request.
+    # If you want this to be configurable, you could change this arg to be '--hf_repo_id'
+    # and then use that value in hf_hub_download.
+    # For now, we omit it as it's directly derived from fixed HF info.
+    
+   
     parser.add_argument(
-        "--batch_size_multimodal", # Renamed from --batch_size for clarity as it's only multimodal training now
+        "--batch_size_multimodal",
         type=int,
         default=4,
         help="Batch size for multimodal training. Default: 4."
     )
-    parser.add_argument(
-        "--batch_size_unimodal",
-        type=int,
-        default=8,
-        help="Batch size for unimodal training (if enabled in prepare_datasets_and_loaders, though not directly used by current training loop). Default: 8."
-    )
-    # Removed --output_csv_inference as inference is gone
+    # REMOVED: --batch_size_unimodal
+    
     parser.add_argument(
         "--num_epochs_multimodal",
         type=int,
         default=50,
         help="Number of epochs for multimodal training. Default: 50."
     )
-    parser.add_argument(
-        "--num_epochs_unimodal", # Kept in case you eventually train unimodal separately, but not directly used by this script's `training_main`
-        type=int,
-        default=10,
-        help="Number of epochs for unimodal training (if enabled). Default: 10."
-    )
+    # REMOVED: --num_epochs_unimodal
+    
     parser.add_argument(
         "--num_mc_samples",
         type=int,
@@ -324,9 +281,24 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     # Setup devices based on your utility function
-    # Use args.data_dir directly as it's required for training.
     environment_config = setup_environment_and_devices(root_dir=args.data_dir)
     devices = environment_config["devices"]
+
+    # NEW: Download model weights from Hugging Face Hub
+    multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
+    multimodal_model_hf_subfolder = "multimodal-bnn"
+    model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin")
+
+    logger.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}/{model_weights_filename}'...")
+    try:
+        downloaded_model_weights_path = hf_hub_download(
+            repo_id=multimodal_model_hf_repo_id,
+            filename=model_weights_filename
+        )
+        logger.info(f"Multimodal model weights downloaded to: {downloaded_model_weights_path}")
+    except Exception as e:
+        logger.critical(f"FATAL ERROR: Could not download model weights from Hugging Face Hub. Error: {e}")
+        sys.exit(1)
 
     # Common parameters for model definition
     const_bnn_prior_parameters = {
@@ -334,56 +306,34 @@ def main():
         "posterior_rho_init": -3.0, "type": "Reparameterization",
         "moped_enable": True, "moped_delta": 0.1,
     }
-    # These model_paths are used internally by define_models, which is called by
-    # your load_and_prepare_multimodal_model_custom function to build the model *structure*.
-    model_paths = {
-        "image": os.path.join(args.models_dir, "bayesian_model_type:image.pth"),
-        "bathy": os.path.join(args.models_dir, "bayesian_model_type:bathy.pth"),
-        "sss": os.path.join(args.models_dir, "bayesian_model_type:sss.pth"),
-        "multimodal": os.path.join(args.models_dir, "_bayesian_model_type:multimodal.pth")
-    }
+   
 
-    # Define optimizer and scheduler parameters
+    # Define optimizer and scheduler parameters (only multimodal_model needed)
     optimizer_params = {
-        # Only "multimodal_model" is strictly needed for the current `training_main` loop.
-        # Others kept for completeness if you have unimodal training in mind for future use.
-        "image_model": {"type": "Adam", "lr": 0.001, "weight_decay": 1e-5},
-        "bathy_model": {"type": "Adam", "lr": 0.001, "weight_decay": 1e-5},
-        "sss_model": {"type": "Adam", "lr": 0.001, "weight_decay": 1e-5},
         "multimodal_model": {"type": "Adam", "lr": args.learning_rate_multimodal, "weight_decay": args.weight_decay_multimodal},
     }
 
     scheduler_params = {
-        # Only "multimodal_model" is strictly needed.
-        "image_model": {"type": "ReduceLROnPlateau", "mode": "min", "factor": 0.5, "patience": 5},
-        "bathy_model": {"type": "ReduceLROnPlateau", "mode": "min", "factor": 0.5, "patience": 5},
-        "sss_model": {"type": "ReduceLROnPlateau", "mode": "min", "factor": 0.5, "patience": 5},
         "multimodal_model": {"type": "ReduceLROnPlateau", "mode": "min", "factor": 0.5, "patience": 5},
     }
 
-    # Define training parameters
+    # Define training parameters (only multimodal-specific)
     training_params = {
-        "batch_size_unimodal": args.batch_size_unimodal,
         "batch_size_multimodal": args.batch_size_multimodal,
-        "num_epochs_unimodal": args.num_epochs_unimodal,
         "num_epochs_multimodal": args.num_epochs_multimodal,
         "num_mc": args.num_mc_samples,
         "bathy_patch_base": args.bathy_patch_base,
         "sss_patch_base": args.sss_patch_base,
     }
 
-    # Directly call training_main as there's no other mode
+    # Directly call training_main
     training_main(
         const_bnn_prior_parameters=const_bnn_prior_parameters,
-        model_paths=model_paths,
-        multimodal_model_weights_path=args.model_weights,
+        multimodal_model_weights_path=downloaded_model_weights_path, # Pass the downloaded path
         optimizer_params=optimizer_params,
         scheduler_params=scheduler_params,
         training_params=training_params,
-        root_dir=args.data_dir,
-        models_dir=args.models_dir,
-        strangford_dir=args.strangford_dir,
-        mulroy_dir=args.mulroy_dir,
+        root_dir=args.data_dir, # This is now the single root for all multimodal training data
         devices=devices
     )
 

@@ -1,14 +1,6 @@
-model
-(pytorch) tommorgan@pop-os:~/Documents/Multimodal_AUV$ ls
-config            Examples     logs            Multimodal_AUV.sln     tests
-data              GPU          main.py         __pycache__            train
-data_preperation  inference    models          tensorboard_logs       utils
-env               __init__.py  Multimodal_AUV  testEnvironments.json
-(pytorch) tommorgan@pop-os:~/Documents/Multimodal_AUV$ cd /Examples/
-bash: cd: /Examples/: No such file or directory
-(pytorch) tommorgan@pop-os:~/Documents/Multimodal_AUV$ cd /Examples/
-bash: cd: /Examples/: No such file or directory
-(pytorch) tommorgan@pop-os:~/Documents/Multimodal_AUV$ python Multimodal_AUV/Examples/Examples_Inference_model.py
-python: can't open file '/home/tommorgan/Documents/Multimodal_AUV/Multimodal_AUV/Examples/Examples_Inference_model.py': [Errno 2] No such file or directory
-(pytorch) tommorgan@pop-os:~/Documents/Multimodal_AUV$ ^C
-
+python -m Multimodal_AUV.Examples.Example_Inference_model \
+    --data_dir "/home/tommorgan/data/all_mulroy_images_and_sonar" \
+    --output_csv "/home/tommorgan/Documents/csvs/inference.csv" \
+    --models_dir "/home/tommorgan/local_models/" \
+    --batch_size 4 \
+    --num_mc_samples 1

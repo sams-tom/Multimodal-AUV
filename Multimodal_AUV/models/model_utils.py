@@ -8,7 +8,6 @@ import os
 from Multimodal_AUV.models.base_models import ResNet50Custom, MultiModalModel, Identity
 
 def define_models(
-    model_paths: Dict[str, str],
     device: torch.device,
     num_classes: int,
     const_bnn_prior_parameters: Dict[str, Any]
