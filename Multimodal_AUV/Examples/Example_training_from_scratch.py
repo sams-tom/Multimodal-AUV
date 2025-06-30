@@ -24,9 +24,6 @@ def main(
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
     root_dir: str,
-    models_dir: str,
-    strangford_dir: str,
-    mulroy_dir: str,
     devices: torch.device # Changed to a single device for consistency with the original code, can be adjusted for multi-GPU
 ):
     # Get the root logger
@@ -82,34 +79,7 @@ def main(
     # 4. Optimizers and Schedulers
     logging.info("Setting up criterion, optimizers and schedulers...")
     criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
-
-    # 5. Train Unimodal Models (uncomment if needed)
-    # model_labels = {
-    #     "image_model": "image",
-    #     "bathy_model": "bathy",
-    #     "sss_model": "sss",
-    # }
-    # logging.info("Starting training of unimodal models...")
-    # print("Starting training of unimodal models...")
-    # for model_key in ["image_model", "bathy_model", "sss_model"]:
-    #     print(f"training model: {model_key}")
-    #     logging.info(f"Training {model_key}...")
-    #     train_and_evaluate_unimodal_model(
-    #         model=models_dict[model_key],
-    #         train_loader=unimodal_train_loader,
-    #         test_loader=unimodal_test_loader,
-    #         criterion=criterion,
-    #         optimizer=optimizers[model_key],
-    #         scheduler=schedulers[model_key],
-    #         num_epochs=training_params["num_epochs_unimodal"],
-    #         num_mc=training_params["num_mc"],
-    #         device=devices, # Changed to single device
-    #         model_name=model_labels[model_key],
-    #         save_dir=f"{root_dir}csvs/",
-    #         sum_writer=sum_writer
-    #     )
-    #     logging.info(f"Finished training {model_key}.")
-
+    
     # 6. Load and Check Multimodal Model
     logging.info("Attempting to load multimodal model...")
 

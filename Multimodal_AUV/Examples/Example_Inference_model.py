@@ -59,7 +59,7 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
     # It seems to define individual Bayesian models and also your 'multimodal' model.
     # Ensure that `define_models` correctly sets up the multimodal architecture
     # that matches the `pytorch_model.bin` weights you're downloading.
-    models_dict_instances = define_models(device=device[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+    models_dict_instances = define_models(device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
 
     # Instantiate YOUR actual MultimodalModel class from the returned dictionary
     # Assuming define_models returns a dictionary where "multimodal" key gives the instantiated model
@@ -97,7 +97,7 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
 
         logging.debug(f"Adjusted state dict keys: {new_state_dict.keys()}")
 
-        load_result = multimodal_model.load_state_dict(new_state_dict, strict=True)
+        load_result = multimodal_model.load_state_dict(new_state_dict, strict=False)
 
         missing_keys = load_result.missing_keys
         unexpected_keys = load_result.unexpected_keys
@@ -138,7 +138,7 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
         raise
 
 # --- Main Execution Block ---
-def main(data_directory: str, models_dir: str, batch_size: int, output_csv: str, num_mc_samples: int): # NEW: Added num_mc_samples
+def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: int): # NEW: Added num_mc_samples
     """
     Main function to run the inference process.
     """
@@ -165,7 +165,7 @@ def main(data_directory: str, models_dir: str, batch_size: int, output_csv: str,
 
         # 2. Load and Check Multimodal Model using your MultimodalModel
         # Pass the path to the downloaded weights
-        multimodal_model = load_and_prepare_multimodal_model(models_dir, downloaded_model_weights_path, device) # NEW: Pass downloaded path
+        multimodal_model = load_and_prepare_multimodal_model( downloaded_model_weights_path, device) # NEW: Pass downloaded path
 
         # Set model to evaluation mode and disable gradient calculations for inference
         multimodal_model.eval()

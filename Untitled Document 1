@@ -4,3 +4,20 @@ python -m Multimodal_AUV.Examples.Example_Inference_model \
     --models_dir "/home/tommorgan/local_models/" \
     --batch_size 4 \
     --num_mc_samples 1
+    
+    dict_keys(['image_model', 'bathy_model', 'sss_model', 'multimodal_model', 'image_model_feat', 'bathy_model_feat', 'sss_model_feat'])
+Traceback (most recent call last):
+  File "/home/tommorgan/anaconda3/envs/pytorch/lib/python3.9/runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/tommorgan/anaconda3/envs/pytorch/lib/python3.9/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/home/tommorgan/Documents/Multimodal_AUV/Multimodal_AUV/Examples/Example_Retraining_model.py", line 342, in <module>
+    main()
+  File "/home/tommorgan/Documents/Multimodal_AUV/Multimodal_AUV/Examples/Example_Retraining_model.py", line 331, in main
+    training_main(
+  File "/home/tommorgan/Documents/Multimodal_AUV/Multimodal_AUV/Examples/Example_Retraining_model.py", line 182, in training_main
+    criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
+  File "/home/tommorgan/Documents/Multimodal_AUV/Multimodal_AUV/train/loop_utils.py", line 48, in define_optimizers_and_schedulers
+    "image_model": optim.Adam(models_dict["image_model"].parameters(), **optimizer_params["image_model"]),
+KeyError: 'image_model'
+

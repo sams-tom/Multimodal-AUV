@@ -41,8 +41,8 @@ def define_optimizers_and_schedulers(
     else:
         raise ValueError(f"Unsupported criterion: {criterion_type}")
 
-    
-
+    print(models_dict.keys())
+    print(optimizer_params.keys())
     # 4. Build optimizers
     optimizers = {
         "image_model": optim.Adam(models_dict["image_model"].parameters(), **optimizer_params["image_model"]),
