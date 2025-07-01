@@ -1,16 +1,15 @@
 # 🌊Project Overview: Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding🐠
-This project develops and deploys **multimodal, Bayesian Neural Networks (BNNs)**, to process and interpret
-habitat data collected by **Autonomous Underwater Vehicles (AUVs)**. This is to offer **scalable**, **accurate** mapping solutions
-in complex underwater environments, incorporating unceratinty quantification to allow **reliable** decision making. The package
+This project develops and deploys **multimodal, Bayesian Neural Networks (BNNs)**, to process and interpret habitat data collected by **Autonomous Underwater Vehicles (AUVs)**. This is to offer **scalable**, **accurate** mapping solutions
+in complex underwater environments,whilst incorporating unceratinty quantification to allow **reliable** decision making. The repo 
 also presents a model as a retrainable foundation model for further tweaking to new datasets and scenarios.🚀
 
 
  ## 🚧 Problem Addressed 🚧
-**Accurate and scalable environmental mapping** within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of light 🔦, turbidity  🌊, and the physical constraints of acoustic and optical sensors 📸  . These factors contribute to **noisy, incomplete, and uncertain data acquisition**, hindering the generation of reliable environmental characterizations.📉
+**Environmental mapping** within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of light 🔦, turbidity  🌊, and the physical constraints of acoustic and optical sensors 📸  . These factors contribute to **noisy, incomplete, and uncertain data acquisition**, hindering the generation of reliable environmental characterizations.📉
 
-Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as marine conservation🌿, resource management 🐠, or autonomous navigation 🧭, understanding the **confidence bounds** of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs)—including high-resolution multibeam sonar 📡, side-scan sonar 🛰️, and optical imagery 📷 - further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
+Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as marine conservation🌿, resource management 🐠, or autonomous navigation 🧭, understanding the **confidence bounds** of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs), including high-resolution multibeam sonar 📡, side-scan sonar 🛰️, and optical imagery 📷, further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
 
-This project addresses these critical limitations by developing and deploying **multimodal Bayesian Neural Networks (BNNs)**. This approach explicitly models the **epistemic and aleatoric uncertainties** inherent in complex underwater datasets, providing not only robust environmental classifications but also **quantifiable measures of prediction confidence**. By leveraging the **complementary strengths of multiple sensor modalities**, the framework aims to deliver enhanced accuracy, scalability, and decision-making capabilities for comprehensive underwater environmental understanding. ✨
+This project addresses these critical limitations by developing and deploying **multimodal Bayesian Neural Networks (BNNs)**. This approach explicitly models and quantifies the **epistemic and aleatoric uncertainties** inherent in complex underwater datasets, providing not only robust environmental classifications but also **quantifiable measures of prediction confidence**. By leveraging the **complementary strengths of multiple sensor modalities**, the framework aims to deliver enhanced accuracy, scalability, and decision-making capabilities for comprehensive underwater environmental understanding. ✨
 
 
       
@@ -66,93 +65,81 @@ Multimodal_AUV/
 ```
 # Repo features 🚀
 Here are some of the key capabilities of this GITHUB
-* **Start to finish pipeline**: taking georeferenced imagery📸 and sonar tiffs 📡to then train Bayesian Neural Networks 
-and make predictions from this.
+* **End-to-End Pipeline**:The repo offers a complete pipeline, allowing you to turn raw georeferenced imagery📸 and sonar tiffs 📡into valid predictions with quantified uncertainty by training Bayesian Neural Networks.
 
 * **Model to predict benthic habitat class (Northern Britain)**: Can download and run a model to evaluate bathymetric, sidescan and image "pairs"
-and predict if its Sand 🏖️, Mud 🏞️, Rock 🪨, Gravel ⚫, Burrowed Mud (PMF) 🕳️, Kelp forest (PMF) 🌳, or Horse Mussel reef (PMF) 🐚.
+and predict specific  benthic habitat classes found in Northern Britain: **Sand 🏖️, Mud 🏞️, Rock 🪨, Gravel ⚫, Burrowed Mud (PMF) 🕳️, Kelp forest (PMF) 🌳, or Horse Mussel reef (PMF) 🐚**.
  
-
-* **Retrainable model**: Code to download and retrain a pretrained network for combining bathymetric, sidescan sonar and image for a new dataset. 🔄
+* **Retrainable foundation model**: Code to download and retrain a pretrained network for combining bathymetric, sidescan sonar and image for a new datasets, adapting the model to your specific needs with reduced computational requirements. 🔄
 
 * **Training a model from scratch**: Code to take sonar and image and train a completely new model returning a  CSV of metrics 📊, the model itself 🧠, and confusion matrices 📈.
 
-* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the optimal sonar patch to maximise predicitve accuracy (high compute requirements! ⚡).
-And to train unimodal and multimodal models to compare the beneft of multimodality. 🔬
+* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the **optimal sonar patch** to maximise predicitve accuracy (high compute requirements! ⚡) and to train unimodal and multimodal models to compare the beneft of multimodality. 🔬
  
-# Getting started (requirements install)
-Getting Started
+# Getting started with this repo
 This section guides you through setting up the project, installing dependencies, and preparing your data for processing and model training/inference.
 
 1. Clone the Repository
-First, clone the project repository to your local machine:
-```
-Bash
-
-git clone https://github.com/sams-tom/Multimodal-AUV.git
-cd Multimodal-AUV # Navigate into the cloned directory
-
-Note: Replace https://github.com/your-username/your-repository-name.git with the actual URL of your GitHub repository.
-```
+   
+   First, clone the project repository to your local machine:
+   ```
+   Bash
+   
+   git clone https://github.com/sams-tom/Multimodal-AUV.git
+   cd Multimodal-AUV # Navigate into the cloned directory
+  
+   ```
 2. Create and Activate Conda Environment
-We recommend using Conda to manage the project's dependencies for a consistent and isolated environment.
-
-Create the Conda environment:
-```
-Bash
-
-conda create -n multimodal_auv python=3.9 # Or your specific Python version (e.g., 3.10, 3.11)
-Activate the environment:
-```
-```
-Bash
-
-conda activate multimodal_auv
-```
-You should see (multimodal_auv) at the beginning of your terminal prompt, indicating the environment is active.
+   We recommend using Conda to manage the project's dependencies for a consistent and isolated     environment.
+   
+   Create the Conda environment:
+   ```
+   Bash
+   
+   conda create -n multimodal_auv python=3.9 # Or your specific Python version (e.g., 3.10,     3.11)
+   ```
+   Activate the environment:
+   ```
+   Bash
+   
+   conda activate multimodal_auv
+   ```
+   You should see (multimodal_auv) at the beginning of your terminal prompt, indicating the  environment is active.
 
 3. Install Dependencies
-With your Conda environment active, install all necessary Python packages listed in the requirements.txt file.
-```
-Bash
-
-pip install -r requirements.txt
+   With your Conda environment active, install all necessary Python packages listed in the  requirements.txt file.
+   ```
+   Bash
+   
+   pip install -r requirements.txt
+   ```
 Important Note on GPU Support:
-This project relies on PyTorch with CUDA for GPU acceleration. The requirements.txt file includes the necessary PyTorch (torch, torchvision, torchaudio) and NVIDIA CUDA runtime dependencies. If you encounter issues during installation related to CUDA (e.g., torch not finding CUDA, or compilation errors), it might be due to your local CUDA toolkit or GPU driver setup.
-```
-In such cases, it's often more robust to install PyTorch specifically using Conda before running pip install -r requirements.txt. You can find the exact conda install command for your specific CUDA version and OS on the official PyTorch website.
+In order to train quickly this train utilises PyTorch with CUDA for GPU acceleration. However, the requirements.txt file does not includ PyTorch (torch, torchvision, torchaudio) and NVIDIA CUDA runtime dependencies as these need to be downloaded to fit with your local CUDA toolkit or GPU driver setup. Navigate to this webpage: https://pytorch.org/get-started/locally/ select your requirements and then copy the command and run that locally.
 
-For example, for CUDA 11.8:
+For example, for CUDA 1..8, Python on  windows:
 ```
 Bash
-
-# Deactivate your current environment first if you need to reinstall PyTorch
-# conda deactivate
-# conda create -n multimodal_auv python=3.9
-# conda activate multimodal_auv
-
 # Then, install PyTorch with CUDA via Conda
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-# After that, proceed with the rest of the dependencies
-pip install -r requirements.txt
 ```
 This ensures Conda handles the complex GPU-related package management.
 
 4. Prepare Data Folders
-Your project requires specific data structures for input and output. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
+Your project requires specific data structures for input and output. If you run the examples below this will be structored correctly. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
 
 Recommended Folder Structure:
 ```
-your-repository-name/
+Multimodal_AUV/
 ├── data/
-│   ├── raw_input/
-│   │   ├── raw_auv_images/  # Folder for your raw optical AUV images (e.g., from your camera)
-│   │   └── auv_geotiffs/    # Folder containing your bathymetry and SSS GeoTIFFs
-│   │       ├── bathy.tif
-│   │       └── sss.tif
-│   │   └── dataset/         # Base directory for combined datasets used in training/inference (e.g., CSVs, processed patches)
-│   │       └── combined_data.csv # Example: CSV linking image paths and labels
+│   ├── individual_data_point/
+│   │   ├── auv_image.jpg/  # Image from camera
+│   │   ├── local_side_scan_image.jpg/  # Cut out of sonar local to camera
+│   │   ├── local_bathy_image.jpg/  # Cut out of sonar local to camera
+│   │   └── LABEL.txt/    # Where the Label is in the title replacing LABEL
+│   ├── individual_data_point/
+│..........
+│   └── individual_data_point/
 │   ├── processed_output/    # Output folder for processed AUV data (e.g., aligned images, extracted features)
 │   ├── model_checkpoints/   # Directory to save trained model weights/checkpoints
 │   └── inference_results/   # Directory to save inference output (e.g., prediction CSVs, classified maps)
@@ -165,23 +152,26 @@ your-repository-name/
 ```
 Clarifying Data Folder Contents:
 
-data/raw_input/raw_auv_images/: Stores original, unprocessed optical images captured by the AUV.
+* ```data/```: Folder containing folders of paired data. Your training scripts' ```--root_dir``` would typically point here.
+* ```data/individual_data_point/```: Example of folder within folder holding required data files
+* ```data/individual_data_point/auv_image.jpg```: The individual image for prediction
+* ```data/individual_data_point/local_side_scan_image.jpg```: The individual side scan image local to the camera image for prediction
+* ```data/individual_data_point/local_bathy_image.jpg```: The individual bathymetric image local to the camera image for prediction
+* ```data/individual_data_point/LABEL.txt```: The label to predict NOT REQUIRED IF YOURE JUST RUNNING INFERENCE AND NOT TRAINING
 
-data/raw_input/auv_geotiffs/: Contains environmental sensor data, specifically GeoTIFFs for bathymetry and Side-Scan Sonar (SSS).
+**PUT IN PHOTO OF DATA STRUCUTRE** 
 
-data/raw_input/dataset/: A generic "dataset" folder for prepared data (e.g., CSVs linking images/patches to labels, or pre-extracted features). Your training scripts' --root_dir would typically point here.
+* ```data/processed_output/```: Stores intermediate or final processed data, often generated by preliminary scripts.
 
-data/processed_output/: Stores intermediate or final processed data, often generated by preliminary scripts.
+* ```data/model_checkpoints/```: Dedicated location for saving trained model weights and checkpoints.
 
-data/model_checkpoints/: Dedicated location for saving trained model weights and checkpoints.
+* ```data/inference_results/```: Stores outputs generated by your inference models (e.g., prediction CSVs, classified maps).
 
-data/inference_results/: Stores outputs generated by your inference models (e.g., prediction CSVs, classified maps).
+## Action Required:
 
-Action Required:
+* **Create these directories manually** within your cloned repository if they don't exist. **Note**: Example of data preparation below will create the correct structure automatically.
 
-Create these directories manually within your cloned repository if they don't exist.
-
-Update config.yaml: Open your config.yaml file and set the data_root_dir, output_base_dir, and other relevant paths within training_from_scratch, retraining_model, inference_model, and raw_data_processing sections to match the paths you've created.
+* **Update ```config.yaml```: Open your ```config.yaml``` file and set the ```data_root_dir```, ```output_base_dir```, and other relevant paths within ```training_from_scratch```, ```retraining_model```, ```inference_model```, and ```raw_data_processing``` sections to match the paths you've created.
    
 # Usage examples
 ## 1.Run the End-to-End Data Preparation Pipeline ⚙️
