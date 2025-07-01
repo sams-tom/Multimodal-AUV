@@ -366,4 +366,7 @@ models/bayesian_model_typebathy.pth
 models/bayesian_model_typeimage.pth
 models/bayesian_model_typesss.pth
 
+#Added these so I have them locally but not on the github itself
 testEnvironments.json
+model_definitions.py
+huggingface_upload.py
