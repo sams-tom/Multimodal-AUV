@@ -281,7 +281,7 @@ Upon successful execution, your ```--output_folder``` will contain a structured 
 
 ## 2.Predict Benthic Habitat Class using a Pre-trained Model 🐠
 
-Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network. This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
+Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network (Found here: https://huggingface.co/sams-tom/multimodal-auv-bathy-bnn-classifier/tree/main/multimodal-bnn) . This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
 
 ### Prerequisites:
 
@@ -346,7 +346,7 @@ Upon successful execution, a CSV file (e.g., inference.csv) will be created at t
 
 ## 3. Retrain a Pre-trained Model on a New Dataset 🔄
 
-This example demonstrates how to fine-tune our pre-trained Multimodal AUV Bayesian Neural Network on your own custom dataset. Retraining allows you to adapt the model to specific environmental conditions or new benthic classes present in your data, leveraging the knowledge already learned by the pre-trained model.
+This example demonstrates how to fine-tune our pre-trained Multimodal AUV Bayesian Neural Network (Found here: https://huggingface.co/sams-tom/multimodal-auv-bathy-bnn-classifier/tree/main/multimodal-bnn )  on your own custom dataset. Retraining allows you to adapt the model to specific environmental conditions or new benthic classes present in your data, leveraging the knowledge already learned by the pre-trained model.
 
 ### Prerequisites:
 
