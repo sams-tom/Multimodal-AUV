@@ -1,4 +1,0 @@
-python -m Multimodal_AUV.Examples.Example_Retraining_model     --data_dir "/home/tommorgan/Documents/data/representative_sediment_sample"      --batch_size_multimodal   4 --num_epochs_multimodal 20    --num_mc_samples 5  --learning_rate_multimodal 0.001 --weight_decay_multimodal 1e-5  --bathy_patch_base 30 --sss_patch_base 30 
-
-
-python -m Multimodal_AUV.Examples.Example_training_from_scratch  --root_dir /home/tommorgan/Documents/data/representative_sediment_sample/  --epochs_multimodal 20  --num_mc 5 --batch_size_multimodal 4  --lr_multimodal 0.001^

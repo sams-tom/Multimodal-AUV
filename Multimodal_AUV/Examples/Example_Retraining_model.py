@@ -5,27 +5,23 @@ from torch.utils.data import DataLoader
 from collections import OrderedDict
 import datetime
 import sys
-from typing import Dict, Any, Tuple # Added Tuple for type hints
+from typing import Dict, Any, Tuple 
 from huggingface_hub import hf_hub_download
+from torch.utils.tensorboard import SummaryWriter
 
-# Assuming these are your project-specific imports.
-# Please ensure MultimodalModel is accessible, e.g., defined in models.model_utils
+#Load in project specific imports
 from Multimodal_AUV.models.model_utils import define_models
-# Removed multimodal_predict_and_save as inference is not needed
-# Removed CustomImageDataset_1 and prepare_inference_datasets_and_loaders as they are specific to inference or simpler data loading
 from Multimodal_AUV.utils.device import move_models_to_device, check_model_devices
 from Multimodal_AUV.config.paths import get_empty_gpus
-from Multimodal_AUV.data.loaders import prepare_datasets_and_loaders # This prepares data for training
+from Multimodal_AUV.data.loaders import prepare_datasets_and_loaders
 from Multimodal_AUV.train.loop_utils import train_and_evaluate_unimodal_model, train_and_evaluate_multimodal_model, define_optimizers_and_schedulers
 
-# TensorBoard is a common utility for training, assuming you use it.
-from torch.utils.tensorboard import SummaryWriter
 
 # Set up logging at the module level for clarity
 logger = logging.getLogger(__name__)
 
 
-def load_and_prepare_multimodal_model_custom( model_weights_path: str, device: torch.device):
+def load_and_prepare_multimodal_model_custom(model_weights_path: str, device: torch.device, num_classes: int) -> torch.nn.Module:
     """
     Loads your MultimodalModel and its state_dict, adjusting keys if necessary, exactly as provided.
     """
@@ -113,7 +109,9 @@ def training_main(
     training_params: Dict[str, Any],
     root_dir: str,
     devices: list,
-    const_bnn_prior_parameters: Dict[str, Any] # New argument for BNN constants
+    const_bnn_prior_parameters: Dict[str, Any],
+        num_classes: int # NEW: Added num_classes as an argument
+
 ):
     # Setup logging as per your previous implementation
     root_logger = logging.getLogger()

@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from collections import OrderedDict
 import pandas as pd
 from huggingface_hub import hf_hub_download # NEW: Import for Hugging Face Hub download
+import argparse
 
 # Assuming these are correctly defined and accessible in your project
 from Multimodal_AUV.models.model_utils import define_models
@@ -19,16 +20,19 @@ def prepare_inference_dataloader(data_dir: str, batch_size: int) -> DataLoader:
     Prepares an inference DataLoader for a single dataset directory.
     Uses your actual CustomImageDataset_1.
     """
+    #Attempts to load the data directory
     try:
         if not os.path.exists(data_dir):
             logging.error(f"Dataset directory not found: {data_dir}")
             raise FileNotFoundError(f"Dataset directory not found: {data_dir}")
 
+        #Organises this into a Custom dataset (containing sonar and image)
         dataset = CustomImageDataset_1(data_dir)
         if len(dataset) == 0:
             logging.error(f"No samples found in CustomImageDataset_1 from {data_dir}. Check your dataset implementation and directory contents.")
             raise ValueError(f"No samples found in dataset from {data_dir}")
 
+        #Turn this dataset into a dataloader and return this
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         logging.info(f"DataLoader prepared for '{data_dir}' with {len(dataset)} items.")
         return dataloader
@@ -36,15 +40,14 @@ def prepare_inference_dataloader(data_dir: str, batch_size: int) -> DataLoader:
         logging.error(f"Error preparing inference DataLoader from {data_dir}: {e}", exc_info=True)
         raise
 
-def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, device: torch.device) -> torch.nn.Module:
+def load_and_prepare_multimodal_model(downloaded_model_weights_path: str, device: torch.device, num_classes: int) -> torch.nn.Module:
     """
     Loads your MultimodalModel and its state_dict, adjusting keys if necessary.
     Takes the already downloaded model_weights_path.
     """
     logging.info("Attempting to load multimodal model...")
 
-   
-    num_classes = 7 # Assuming fixed for this model, or pass as arg if variable
+   #These are set to load the model
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
         "prior_sigma": 1.0,
@@ -55,36 +58,33 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
         "moped_delta": 0.1,
     }
 
-    # IMPORTANT: The `models_dict = define_models(...)` call is crucial.
-    # It seems to define individual Bayesian models and also your 'multimodal' model.
-    # Ensure that `define_models` correctly sets up the multimodal architecture
-    # that matches the `pytorch_model.bin` weights you're downloading.
+    #Calls the model defining function
     models_dict_instances = define_models(device=device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
 
-    # Instantiate YOUR actual MultimodalModel class from the returned dictionary
-    # Assuming define_models returns a dictionary where "multimodal" key gives the instantiated model
+
+    #This checks the multimodal model has been defined
     if "multimodal_model" not in models_dict_instances:
         logging.error("Key 'multimodal_model' not found in models_dict returned by define_models. Check define_models implementation.")
         raise KeyError("Multimodal model instance not found in define_models output.")
 
+    #Extracts this multimodal model and moves it to device
     multimodal_model = models_dict_instances["multimodal_model"]
     multimodal_model.to(device)
 
     logging.info(f"Attempting to load state_dict directly into multimodal_model from {downloaded_model_weights_path}")
+
     try:
+        #Loads the model
         raw_state_dict = torch.load(downloaded_model_weights_path, map_location=device)
         logging.debug(f"Raw state dict keys: {raw_state_dict.keys()}")
 
+        #This below cleans up the loading file so that the downloaded model and the defined model line up
         new_state_dict = OrderedDict()
         for k, v in raw_state_dict.items():
             # Remove 'module.' prefix (from DataParallel/DDP)
             if k.startswith('module.'):
                 k = k[7:]
 
-            # Adjust specific feature extractor prefixes based on your model's saved state_dict
-            # These adjustments are critical for `load_state_dict` to work.
-            # Make sure these prefixes match *exactly* what's in your saved `pytorch_model.bin`
-            # and what your `MultimodalModel` expects.
             if k.startswith('image_model_feat.model.'):
                 name = k.replace('image_model_feat.model.', 'image_model_feat.', 1)
             elif k.startswith('sss_model_feat.model.'):
@@ -97,13 +97,16 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
 
         logging.debug(f"Adjusted state dict keys: {new_state_dict.keys()}")
 
+        #Next it loads this model
+        ##NOTE: THEY DONT PERFECTLY LINE UP BUT THIS IS FINE
         load_result = multimodal_model.load_state_dict(new_state_dict, strict=False)
 
         missing_keys = load_result.missing_keys
         unexpected_keys = load_result.unexpected_keys
 
+        #This defines a collection of warnings
         if missing_keys:
-            logging.warning(f"WARNING: The following keys were MISSING in the loaded state_dict compared to the model's state_dict:")
+            logging.warning(f"WARNING:  ONLY WARNING, THIS IS NOT THE END OF THE WORLD IF LIST IS APPROX 9 FC LAYERS, THIS IS EXPECTED. The following keys were MISSING in the loaded state_dict compared to the model's state_dict:")
             for key in missing_keys:
                 logging.warning(f"  - {key}")
         else:
@@ -121,10 +124,13 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
         else:
             logging.warning("Model state_dict loaded with some discrepancies. Check warnings above.")
 
-        multimodal_model.train() # Set model to evaluation mode; if inference, should be .eval()
+        #sets model to train to allow the uncertainty calculation
+        multimodal_model.train() 
        
+        #Returns the mutlimodal model
         return multimodal_model
 
+    #Error handling
     except FileNotFoundError:
         logging.error(f"Model weights file not found at: {downloaded_model_weights_path}")
         raise
@@ -138,20 +144,25 @@ def load_and_prepare_multimodal_model( downloaded_model_weights_path: str, devic
         raise
 
 # --- Main Execution Block ---
-def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: int): # NEW: Added num_mc_samples
+def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: int, num_classes: int): # NEW: Added num_classes
     """
     Main function to run the inference process.
     """
+
+    #Uses just one gpu if avalible
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
 
     try:
-        # --- NEW: Download model weights from Hugging Face Hub ---
+        ##The below loads the mutlimodal model weights from hugging face
+
+        #Defining the folder structure on hugging face
         multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
         multimodal_model_hf_subfolder = "multimodal-bnn"
         model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin")
 
         logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}/{model_weights_filename}'...")
+        #Downloads the weights
         downloaded_model_weights_path = hf_hub_download(
             repo_id=multimodal_model_hf_repo_id,
             filename=model_weights_filename,
@@ -164,11 +175,10 @@ def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: 
         inference_dataloader = prepare_inference_dataloader(data_directory, batch_size)
 
         # 2. Load and Check Multimodal Model using your MultimodalModel
-        # Pass the path to the downloaded weights
-        multimodal_model = load_and_prepare_multimodal_model( downloaded_model_weights_path, device) # NEW: Pass downloaded path
+        # Pass the path to the downloaded weights and num_classes
+        multimodal_model = load_and_prepare_multimodal_model(downloaded_model_weights_path, device, num_classes) 
 
-        # Set model to evaluation mode and disable gradient calculations for inference
-        multimodal_model.eval()
+
         with torch.no_grad():
             # 3. Perform Inference and Save Results using your multimodal_predict_and_save
             multimodal_predict_and_save(
@@ -176,7 +186,7 @@ def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: 
                 dataloader=inference_dataloader,
                 device=device,
                 csv_path=output_csv,
-                num_mc_samples=num_mc_samples, # NEW: Pass num_mc_samples from argument
+                num_mc_samples=num_mc_samples, 
                 model_type="multimodal"
             )
         logging.info("Final inference process completed successfully.")
@@ -187,34 +197,46 @@ def main(data_directory: str, batch_size: int, output_csv: str, num_mc_samples: 
         exit(1)
 
 if __name__ == "__main__":
-    import argparse
 
+    #Define the aug paser
     parser = argparse.ArgumentParser(description="Run multimodal AUV inference on a single dataset.")
+
+    #Requires a data directory
     parser.add_argument(
         "--data_dir",
         type=str,
         required=True,
         help="Path to the directory containing the dataset for inference (e.g., './path/to/my_strangford_data')."
     )
-    # REMOVED: --model_weights is now handled by internal download
+    #Requires a batch size
     parser.add_argument(
         "--batch_size",
         type=int,
         default=4,
         help="Batch size for inference. Default: 4."
     )
+    #Requires a path for the output csv
     parser.add_argument(
         "--output_csv",
         type=str,
         default="./inference_results.csv",
         help="Path to save the inference results CSV. Default: './inference_results.csv'."
     )
-
-    parser.add_argument( # NEW: Add num_mc_samples argument
+    #Requires a number of multicarlo samples for uncertainty quantification
+    parser.add_argument( 
         "--num_mc_samples",
         type=int,
-        default=1,
+        default=5,
         help="Number of Monte Carlo samples to draw for BNN inference. Default: 1 (no MC dropout)."
+    )
+    #Requires a number of classes for model instatiation.
+    #Note this must equal 7 for the downloaded model to work
+    parser.add_argument( 
+        "--num_classes",
+        type=int,
+        required=True, 
+        default=7,
+        help="Number of output classes for the classification model. Note for the downloaded model this must be 7"
     )
 
     args = parser.parse_args()
@@ -224,5 +246,6 @@ if __name__ == "__main__":
         data_directory=args.data_dir,
         batch_size=args.batch_size,
         output_csv=args.output_csv,
-        num_mc_samples=args.num_mc_samples # NEW: Pass num_mc_samples
+        num_mc_samples=args.num_mc_samples,
+        num_classes=args.num_classes 
     )
