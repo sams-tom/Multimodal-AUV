@@ -178,7 +178,7 @@ Multimodal_AUV/
 To preprocess your AUV sonar and optical image data, execute the following command from your terminal:
 
 ```bash
-python Example_data_preparation.py \
+python -m Example_data_preparation \
     --raw_optical_images_folder "/path/to/your/raw_auv_images" \
     --geotiff_folder "/path/to/your/auv_geotiffs" \
     --output_folder "/path/to/your/processed_auv_data" \
@@ -187,7 +187,7 @@ python Example_data_preparation.py \
     --image_enhancement_method "AverageSubtraction"
 ```
 
-## Understanding the Arguments:
+### Understanding the Arguments:
 
 * **```python Example_data_preparation.py```**: This invokes the main preprocessing script.
 
@@ -207,13 +207,13 @@ python Example_data_preparation.py \
           </comment>``` 
      If not you will have to rewrite the metadata part of the function or organise your own data function.
      
-     Action Required: You MUST replace /path/to/your/raw/optical_images with the actual, full path to your raw optical images folder on your local machine.
+     Action Required: You MUST replace ```/path/to/your/raw/optical_images``` with the actual, full path to your raw optical images folder on your local machine.
 
 * **```--geotiff_folder```** ```"/path/to/your/auv_geotiffs"```
 
   Purpose: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data. The bathymetry tiffs must have "bathy" in the file name, the side-scan must have "SSS" in the file name. 
   
-  Action Required: You MUST replace /path/to/your/auv_geotiffs with the actual, full path to your GeoTIFFs folder.
+  Action Required: You MUST replace ```/path/to/your/auv_geotiffs``` with the actual, full path to your GeoTIFFs folder.
 
   Example Structure:
   
@@ -253,7 +253,8 @@ python Example_data_preparation.py \
   
   Usage: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
 
-##Output Data Structure
+### Output Data Structure
+
 Upon successful execution, your ```--output_folder``` will contain a structured dataset. Here's an example of the typical output:
    ```
    /path/to/your/processed_auv_data/
@@ -272,27 +273,25 @@ Upon successful execution, your ```--output_folder``` will contain a structured 
 
 * **coords.csv**: A primary metadata file containing entries for each processed optical image, including its filename, geographical coordinates (latitude, longitude), timestamp, and the relative path to its corresponding processed image and sonar patches within the output structure.
 
-* **image_XXXX/ subfolders**: Each subfolder is named after the processed optical image and contains:
-
-The processed optical image itself.
+* **image_XXXX/ subfolders**: Each subfolder is named after the processed optical image and contains the processed optical image itself.
 
 * **GeoTIFF patches** : Individual GeoTIFF files representing the extracted square patches from each of your input GeoTIFFs (e.g., bathymetry, side-scan sonar) for that specific location.
 
 
 ## 2.Predict Benthic Habitat Class using a Pre-trained Model 🐠
+
 Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network. This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
 
-Prerequisites:
+### Prerequisites:
 
-Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
+* Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
 
-Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to Multimodal_AUV/data/datasets.py for details). The --data_dir argument should point to the root of this organized dataset.
+* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```Multimodal_AUV/data/datasets.py``` or the above example (1.) for details). The ```--data_dir``` argument should point to the root of this organized dataset.
 
-The script will automatically download the required model weights from the Hugging Face Hub.
+* The script will **automatically** download the required model weights from the Hugging Face Hub.
 
 Inference Command Example:
 
-To run inference on your multimodal AUV data and save the predictions to a CSV file, use the following command from the root directory of this repository:
 ```
 Bash
 
@@ -303,63 +302,60 @@ python -m Multimodal_AUV.Examples.Example_Inference_model \
     --num_mc_samples 20
 
 ```
-Understanding the Arguments:
+### Understanding the Arguments:
 
-python -m Multimodal_AUV.Examples.Example_Inference_model: This executes the Example_Inference_model.py script as a Python module, which is the recommended way to run scripts within a package structure.
+* **```python -m Multimodal_AUV.Examples.Example_Inference_model```**: This executes the ```Example_Inference_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
---data_dir "/path/to/your/input_data/dataset":
+* **```--data_dir``` ```"/path/to/your/input_data/dataset"```**:
 
-Purpose: Specifies the absolute path to the directory containing your multimodal input data (e.g., GeoTIFFs, corresponding CSVs, etc.).
+  **Purpose**: Specifies the absolute path to the directory containing your multimodal input data (e.g., GeoTIFFs, corresponding CSVs, etc.).
+  
+  **Action Required** : You MUST replace ```"/path/to/your/input_data/all_mulroy_images_and_sonar"``` with the actual absolute path to your dataset on your local machine.
 
-Action Required: You MUST replace "/path/to/your/input_data/all_mulroy_images_and_sonar" with the actual absolute path to your dataset on your local machine.
+* **```--output_csv``` ```"/path/to/save/your/results/inference.csv"```**:
 
---output_csv "/path/to/save/your/results/inference.csv":
+  **Purpose**: Defines the absolute path and filename where the inference results (predicted classes, uncertainty metrics) will be saved in CSV format.
+  
+  **Action Required**: You MUST replace ```"/path/to/save/your/results/inference.csv"``` with your desired output path and filename. The script will create the file and any necessary parent directories if they don't exist.
 
-Purpose: Defines the absolute path and filename where the inference results (predicted classes, uncertainty metrics) will be saved in CSV format.
+* **```--batch_size 4:```**
 
-Action Required: You MUST replace "/path/to/save/your/results/inference.csv" with your desired output path and filename. The script will create the file and any necessary parent directories if they don't exist.
+  **Purpose**: Sets the number of samples processed at once by the model during inference.
+  
+  **Customization**: Adjust this value based on your available GPU memory. Larger batch sizes can speed up inference but require more VRAM.
 
---batch_size 4:
+* **```--num_mc_samples 5```**:
 
-Purpose: Sets the number of samples processed at once by the model during inference.
+  **Purpose**: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+  
+  **Customization**: For production, you might use 100 or more samples for better uncertainty estimation. For quick testing, 5-10 samples are sufficient.
 
-Customization: Adjust this value based on your available GPU memory. Larger batch sizes can speed up inference but require more VRAM.
-
---num_mc_samples 5:
-
-Purpose: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution. A higher number of samples leads to a more robust estimation of predictive uncertainty.
-
-Customization: For production, you might use 100 or more samples for better uncertainty estimation. For quick testing, 5-10 samples are sufficient.
-
-Expected Output:
+### Expected Output:
 
 Upon successful execution, a CSV file (e.g., inference.csv) will be created at the specified --output_csv path. This file will contain:
 
-Image Name: Identifier for the input sample.
+* **Image Name**: Identifier for the input sample.
 
-Predicted Class: The model's most likely class prediction.
+* **Predicted Class**: The model's most likely class prediction.
 
-Predictive Uncertainty: A measure of the total uncertainty in the prediction (combining aleatoric and epistemic).
+* **Predictive Uncertainty**: A measure of the total uncertainty in the prediction (combining aleatoric and epistemic).
 
-Aleatoric Uncertainty: Uncertainty inherent in the data itself (e.g., sensor noise, ambiguous regions).
+* **Aleatoric Uncertainty**: Uncertainty inherent in the data itself (e.g., sensor noise, ambiguous regions).
 
-Here's how you can document your new functions in your GitHub README, following the style and detail of your existing sections:
 
 ## 3. Retrain a Pre-trained Model on a New Dataset 🔄
 
 This example demonstrates how to fine-tune our pre-trained Multimodal AUV Bayesian Neural Network on your own custom dataset. Retraining allows you to adapt the model to specific environmental conditions or new benthic classes present in your data, leveraging the knowledge already learned by the pre-trained model.
 
-Prerequisites:
+### Prerequisites:
 
-Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
+* Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
 
-Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to Multimodal_AUV/data/datasets.py for details). The --data_dir argument should point to the root of this organized dataset.
+* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```Multimodal_AUV/data/datasets.py``` or Example.data preparataion above (1) for details). The ```--data_dir``` argument should point to the root of this organized dataset.
 
-The script will automatically download the required pre-trained model weights from the Hugging Face Hub.
+* The script will automatically download the required pre-trained model weights from the Hugging Face Hub.
 
 Retraining Command Example:
-
-To retrain the model on your multimodal AUV data, use the following command from the root directory of this repository:
 
 ```
 Bash
@@ -375,70 +371,70 @@ python -m Multimodal_AUV.Examples.Example_Retraining_model \
     --sss_patch_base 30
 
 ```
-Understanding the Arguments:
 
-python -m Multimodal_AUV.Examples.Example_Retraining_model: This executes the Example_Retraining_model.py script as a Python module, which is the recommended way to run scripts within a package structure.
+### Understanding the Arguments:
 
---data_dir ""/path/to/your/input_data/dataset"":
+* **```python -m Multimodal_AUV.Examples.Example_Retraining_model```**: This executes the ```Example_Retraining_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
-Purpose: Specifies the absolute path to the directory containing your multimodal input data for retraining (e.g., GeoTIFFs, corresponding CSVs, etc.).
+* **```--data_dir``` ```""/path/to/your/input_data/dataset""```**:
 
-Action Required: You MUST replace ""/path/to/your/input_data/dataset"" with the actual absolute path to your dataset on your local machine.
+ **Purpose**: Specifies the absolute path to the directory containing your multimodal input data for retraining (e.g., GeoTIFFs, corresponding CSVs, etc.).
+ 
+ **Action Required**: You MUST replace ```""/path/to/your/input_data/dataset""``` with the actual absolute path to your dataset on your local machine.
 
---batch_size_multimodal 20:
+* **```--batch_size_multimodal 20```**:
 
-Purpose: Sets the number of samples processed at once by the model during retraining.
+  **Purpose**: Sets the number of samples processed at once by the model during retraining.
+  
+  **Customization**: Adjust this value based on your available GPU memory. Larger batch sizes can speed up training but require more VRAM.
 
-Customization: Adjust this value based on your available GPU memory. Larger batch sizes can speed up training but require more VRAM.
+* **```--num_epochs_multimodal 20```**:
 
---num_epochs_multimodal 20:
+  **Purpose**: Defines the total number of training epochs (complete passes through the entire dataset).
+  
+  **Customization**: Increase this value for more thorough training, especially with larger datasets or when the model is converging slowly.
 
-Purpose: Defines the total number of training epochs (complete passes through the entire dataset).
+*  **```num_mc_samples 20```**: 
 
-Customization: Increase this value for more thorough training, especially with larger datasets or when the model is converging slowly.
+  **Purpose**: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+  
+  **Customization**: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
 
---num_mc_samples 20:
+* **```--learning_rate_multimodal 0.001```**:
 
-Purpose: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+  **Purpose**: Sets the initial learning rate for the optimizer. This controls the step size at which the model's weights are updated during training.
+  
+  **Customization**: Experiment with different learning rates (e.g., 0.01, 0.0001) to find the optimal value for your dataset.
 
-Customization: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
+* **```--weight_decay_multimodal 1e-5```**:
 
---learning_rate_multimodal 0.001:
+  **Purpose**: Applies L2 regularization (weight decay) to prevent overfitting by penalizing large weights.
+  
+  **Customization**: Adjust this value to control the strength of the regularization. A higher value means stronger regularization.
 
-Purpose: Sets the initial learning rate for the optimizer. This controls the step size at which the model's weights are updated during training.
+* **```--bathy_patch_base 30```**:
 
-Customization: Experiment with different learning rates (e.g., 0.01, 0.0001) to find the optimal value for your dataset.
+  **Purpose**: Defines the base patch size for bathymetry data processing.
+  
+  **Customization**: This parameter affects how bathymetry data is chunked and processed. Adjust as needed based on your data characteristics.
 
---weight_decay_multimodal 1e-5:
+* **```--sss_patch_base 30```**:
 
-Purpose: Applies L2 regularization (weight decay) to prevent overfitting by penalizing large weights.
-
-Customization: Adjust this value to control the strength of the regularization. A higher value means stronger regularization.
-
---bathy_patch_base 30:
-
-Purpose: Defines the base patch size for bathymetry data processing.
-
-Customization: This parameter affects how bathymetry data is chunked and processed. Adjust as needed based on your data characteristics.
-
---sss_patch_base 30:
-
-Purpose: Defines the base patch size for side-scan sonar (SSS) data processing.
-
-Customization: Similar to bathy_patch_base, this affects how SSS data is chunked and processed.
+  **Purpose**: Defines the base patch size for side-scan sonar (SSS) data processing.
+  
+  **Customization**: Similar to bathy_patch_base, this affects how SSS data is chunked and processed.
 
 ## 4. Train a New Multimodal Model from Scratch 🧠
+
 This example outlines how to train a new Multimodal AUV Bayesian Neural Network entirely from scratch using your own dataset. This is suitable when you have a large, diverse dataset and want to build a model specifically tailored to your data's unique characteristics, without relying on pre-trained weights.
 
-Prerequisites:
+### Prerequisites:
 
-Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
+* Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
 
-Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to Multimodal_AUV/data/datasets.py for details). The --root_dir argument should point to the root of this organized dataset.
+* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```Multimodal_AUV/data/datasets.py``` or example.data_preparation above (1) for details). The ```--root_dir``` argument should point to the root of this organized dataset.
 
 Training Command Example:
-
-To train a new model from scratch on your multimodal AUV data, use the following command from the root directory of this repository:
 
 ```
 Bash
@@ -451,39 +447,39 @@ python -m Multimodal_AUV.Examples.Example_training_from_scratch \
     --lr_multimodal 0.001
 ```
 
-Understanding the Arguments:
+### Understanding the Arguments:
 
-python -m Multimodal_AUV.Examples.Example_training_from_scratch: This executes the Example_training_from_scratch.py script as a Python module, which is the recommended way to run scripts within a package structure.
+* **```python -m Multimodal_AUV.Examples.Example_training_from_scratch```**: This executes the ```Example_training_from_scratch.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
---root_dir "/path/to/your/input_data/dataset":
+* **```--root_dir```** "/path/to/your/input_data/dataset":
 
-Purpose: Specifies the absolute path to the root directory containing your multimodal input data for training (e.g., GeoTIFFs, corresponding CSVs, etc.).
+  **Purpose**: Specifies the absolute path to the root directory containing your multimodal input data for training (e.g., GeoTIFFs, corresponding CSVs, etc.).
+  
+  **Action Required**: You MUST replace ```/home/tommorgan/Documents/data/representative_sediment_sample/``` with the actual absolute path to your dataset on your local machine.
 
-Action Required: You MUST replace /home/tommorgan/Documents/data/representative_sediment_sample/ with the actual absolute path to your dataset on your local machine.
+* **```--epochs_multimodal```** 20:
 
---epochs_multimodal 20:
+  **Purpose**: Defines the total number of training epochs (complete passes through the entire dataset).
+  
+  **Customization**: Increase this value for more thorough training, especially with larger datasets. Training from scratch typically requires more epochs than retraining.
 
-Purpose: Defines the total number of training epochs (complete passes through the entire dataset).
+* **```--num_mc```** 20:
 
-Customization: Increase this value for more thorough training, especially with larger datasets. Training from scratch typically requires more epochs than retraining.
+  **Purpose**: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+  
+  **Customization**: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
 
---num_mc 20:
+* **```--batch_size_multimodal```** 20:
 
-Purpose: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+  **Purpose**: Sets the number of samples processed at once by the model during training.
+  
+  **Customization**: Adjust this value based on your available GPU memory. Larger batch sizes can speed up training but require more VRAM.
 
-Customization: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
+* **```--lr_multimodal```** 0.001:
 
---batch_size_multimodal 20:
-
-Purpose: Sets the number of samples processed at once by the model during training.
-
-Customization: Adjust this value based on your available GPU memory. Larger batch sizes can speed up training but require more VRAM.
-
---lr_multimodal 0.001:
-
-Purpose: Sets the initial learning rate for the optimizer. This controls the step size at which the model's weights are updated during training.
-
-Customization: Experiment with different learning rates (e.g., 0.01, 0.0001) to find the optimal value for your dataset. Training from scratch might require more careful tuning of the learning rate.
+  **Purpose**: Sets the initial learning rate for the optimizer. This controls the step size at which the model's weights are updated during training.
+  
+  **Customization**: Experiment with different learning rates (e.g., 0.01, 0.0001) to find the optimal value for your dataset. Training from scratch might require more careful tuning of the learning rate.
 
 
 
