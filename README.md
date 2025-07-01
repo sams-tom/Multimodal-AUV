@@ -1,20 +1,20 @@
-# Project Overview: Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding
+# 🌊Project Overview: Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding🐠
 This project develops and deploys **multimodal, Bayesian Neural Networks (BNNs)**, to process and interpret
 habitat data collected by **Autonomous Underwater Vehicles (AUVs)**. This is to offer **scalable**, **accurate** mapping solutions
 in complex underwater environments, incorporating unceratinty quantification to allow **reliable** decision making. The package
-also presents a model as a retrainable foundation model for further tweaking to new datasets and scenarios.
+also presents a model as a retrainable foundation model for further tweaking to new datasets and scenarios.🚀
 
 
-## Problem Addressed
-Accurate and scalable environmental mapping within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of light, turbidity, and the physical constraints of acoustic and optical sensors. These factors contribute to noisy, incomplete, and uncertain data acquisition, hindering the generation of reliable environmental characterizations.
+ ## 🚧 Problem Addressed 🚧
+**Accurate and scalable environmental mapping** within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of light 🔦, turbidity  🌊, and the physical constraints of acoustic and optical sensors 📸  . These factors contribute to **noisy, incomplete, and uncertain data acquisition**, hindering the generation of reliable environmental characterizations.📉
 
-Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as marine conservation, resource management, or autonomous navigation, understanding the confidence bounds of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs)—including high-resolution multibeam sonar, side-scan sonar, and optical imagery—further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
+Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as marine conservation🌿, resource management 🐠, or autonomous navigation 🧭, understanding the **confidence bounds** of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs)—including high-resolution multibeam sonar 📡, side-scan sonar 🛰️, and optical imagery 📷 - further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
 
-This project addresses these critical limitations by developing and deploying multimodal Bayesian Neural Networks (BNNs). This approach explicitly models the epistemic and aleatoric uncertainties inherent in complex underwater datasets, providing not only robust environmental classifications but also quantifiable measures of prediction confidence. By leveraging the complementary strengths of multiple sensor modalities, the framework aims to deliver enhanced accuracy, scalability, and decision-making capabilities for comprehensive underwater environmental understanding.
+This project addresses these critical limitations by developing and deploying **multimodal Bayesian Neural Networks (BNNs)**. This approach explicitly models the **epistemic and aleatoric uncertainties** inherent in complex underwater datasets, providing not only robust environmental classifications but also **quantifiable measures of prediction confidence**. By leveraging the **complementary strengths of multiple sensor modalities**, the framework aims to deliver enhanced accuracy, scalability, and decision-making capabilities for comprehensive underwater environmental understanding. ✨
 
 
       
-# Project Structure
+# Project Structure 🏗️
 ```
 Multimodal_AUV/
 ├── Multimodal_AUV/
@@ -64,23 +64,21 @@ Multimodal_AUV/
       ├── test_utils.py
       └── __init__.py
 ```
-# Repo features
+# Repo features 🚀
 Here are some of the key capabilities of this GITHUB
-* **Start to finish pipeline**: taking georeferenced imagery and sonar tiffs to then train Bayesian Neural Networks 
+* **Start to finish pipeline**: taking georeferenced imagery📸 and sonar tiffs 📡to then train Bayesian Neural Networks 
 and make predictions from this.
 
 * **Model to predict benthic habitat class (Northern Britain)**: Can download and run a model to evaluate bathymetric, sidescan and image "pairs"
-and predict if its Sand, Mud, Rock, Gravel, Burrowed Mud (PMF), Kelp forest (PMF) or Horse Mussel reef (PMF).
+and predict if its Sand 🏖️, Mud 🏞️, Rock 🪨, Gravel ⚫, Burrowed Mud (PMF) 🕳️, Kelp forest (PMF) 🌳, or Horse Mussel reef (PMF) 🐚.
  
 
-* **Retrainable model**: Code to download and retrain a pretrained network for combining bathymetric, sidescan sonar and image
-for a new dataset.
+* **Retrainable model**: Code to download and retrain a pretrained network for combining bathymetric, sidescan sonar and image for a new dataset. 🔄
 
-* **Training a model from scratch**: Code to take sonar and image and train a completely new model returning a csv of metrics,
-the model and confusion matricies.
+* **Training a model from scratch**: Code to take sonar and image and train a completely new model returning a  CSV of metrics 📊, the model itself 🧠, and confusion matrices 📈.
 
-* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the optimal sonar patch to maximise predicitve accuracy (high compute requirements).
-And to train unimodal and multimodal models to compare the beneft of multimodality.
+* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the optimal sonar patch to maximise predicitve accuracy (high compute requirements! ⚡).
+And to train unimodal and multimodal models to compare the beneft of multimodality. 🔬
  
 # Getting started (requirements install)
 Getting Started
@@ -186,7 +184,7 @@ Create these directories manually within your cloned repository if they don't ex
 Update config.yaml: Open your config.yaml file and set the data_root_dir, output_base_dir, and other relevant paths within training_from_scratch, retraining_model, inference_model, and raw_data_processing sections to match the paths you've created.
    
 # Usage examples
-## 1.Run the End-to-End Data Preparation Pipeline
+## 1.Run the End-to-End Data Preparation Pipeline ⚙️
 To preprocess your AUV sonar and optical image data, execute the following command from your terminal:
 
 ```bash
@@ -277,7 +275,7 @@ image_XXXX/ subfolders: Each subfolder is named after the processed optical imag
 The processed optical image itself.
 
 GeoTIFF patches: Individual GeoTIFF files representing the extracted square patches from each of your input GeoTIFFs (e.g., bathymetry, side-scan sonar) for that specific location.
-## 2.Predict Benthic Habitat Class using a Pre-trained Model
+## 2.Predict Benthic Habitat Class using a Pre-trained Model 🐠
 Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network. This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
 
 Prerequisites:
@@ -343,7 +341,7 @@ Aleatoric Uncertainty: Uncertainty inherent in the data itself (e.g., sensor noi
 
 Here's how you can document your new functions in your GitHub README, following the style and detail of your existing sections:
 
-## 3. Retrain a Pre-trained Model on a New Dataset
+## 3. Retrain a Pre-trained Model on a New Dataset 🔄
 
 This example demonstrates how to fine-tune our pre-trained Multimodal AUV Bayesian Neural Network on your own custom dataset. Retraining allows you to adapt the model to specific environmental conditions or new benthic classes present in your data, leveraging the knowledge already learned by the pre-trained model.
 
@@ -425,7 +423,7 @@ Purpose: Defines the base patch size for side-scan sonar (SSS) data processing.
 
 Customization: Similar to bathy_patch_base, this affects how SSS data is chunked and processed.
 
-## 4. Train a New Multimodal Model from Scratch
+## 4. Train a New Multimodal Model from Scratch 🧠
 This example outlines how to train a new Multimodal AUV Bayesian Neural Network entirely from scratch using your own dataset. This is suitable when you have a large, diverse dataset and want to build a model specifically tailored to your data's unique characteristics, without relying on pre-trained weights.
 
 Prerequisites:
@@ -486,33 +484,29 @@ Customization: Experiment with different learning rates (e.g., 0.01, 0.0001) to 
 
 
 
+# ⚙️ Configuration ⚙️
+The project's behavior and parameters are highly configurable, allowing you to easily adapt the pipeline and models to diverse datasets, training regimes, and specific requirements without altering the source code.✨
 
+All core parameters for data processing, model training, and inference are controlled via **YAML configuration files**. This approach ensures reproducibility 🔁, simplifies experimentation 🧪, and facilitates seamless collaboration 🤝.
 
-
-
-# Configuration
-The project's behavior and parameters are highly configurable, allowing you to easily adapt the pipeline and models to diverse datasets, training regimes, and specific requirements without altering the source code.
-
-All core parameters for data processing, model training, and inference are controlled via YAML configuration files. This approach ensures reproducibility, simplifies experimentation, and facilitates seamless collaboration.
-
-Key Configuration Areas:
+## Key Configuration Areas:
 The configuration is organized to cover various stages of the AUV data processing and model lifecycle:
 
-Data Management:
+## Data Management:  📊
 
-Input/Output Paths: Define locations for raw data (e.g., optical images, GeoTIFFs), processed outputs, and inference results.
+Input/Output Paths: Define locations for raw data  (e.g., optical images 📸, GeoTIFFs 🗺️), processed outputs, and inference results.
 
-Data Preparation Parameters: Specify settings like patch sizes for bathymetry and SSS, image dimensions, and relevant GeoTIFF channels.
+Data Preparation Parameters: Specify settings like patch sizes forbathymetry 📏 and SSS, image dimensions 🖼️,, and relevant GeoTIFF channels.
 
-Model Training & Retraining:
+## Model Training & Retraining: 🧠
 
-Core Training Parameters: Control fundamental aspects like learning rate, batch size, number of epochs, and optimization algorithms.
+Core Training Parameters: Control fundamental aspects like learning rate 📉, batch size 📦, number of epochs ⏳, and optimization algorithms.
 
 Model Architecture: Configure choices such as model type (e.g., multimodal_bnn, unimodal_bnn), number of output classes, and specific layer dimensions.
 
 Bayesian Neural Network (BNN) Settings: Parameters for BNN priors, if applicable.
 
-Inference:
+## Inference:  🔮
 
 Prediction Control: Define thresholds for classification and output formats for results.
 
@@ -563,34 +557,34 @@ raw_data_processing:
   image_enhancement_method: "AverageSubtraction"
 ```
 
-# Model architecture
+# 🧠 Model Architecture 🏗️
 
-This project leverages sophisticated **Bayesian Neural Network (BNN)** architectures designed for robust multimodal data fusion and uncertainty quantification in underwater environments. The core design principles are modularity and adaptability, allowing for both unimodal and multimodal processing.
+This project leverages sophisticated **Bayesian Neural Network (BNN)** architectures designed for robust multimodal data fusion and uncertainty quantification in underwater environments. The core design principles are **modularity** and **adaptability** , allowing for both unimodal and multimodal processing. ✨
 
-## **1. Multimodal Fusion Architecture:**
+## **1. Multimodal Fusion Architecture:**  🤝
 The primary model (`multimodal.py` in `train/` and `base_models.py`) is designed to integrate information from different sensor modalities:
-* **Image Encoder:** A Convolutional Neural Network (CNN) backbone (e.g., a pre-trained ResNet, specifically adapted to be Bayesian) processes the optical imagery from AUVs.
-* **Sonar Encoder(s):** Separate CNN backbones process the structured sonar data (bathymetry, side-scan sonar). These are adapted to handle the specific characteristics of sonar grids (e.g., single-channel or multi-channel inputs derived from `image_processing.py`).
-* **Fusion Layer:** Features extracted from each modality's encoder are concatenated or combined using a dedicated fusion layer (e.g., a fully connected network, attention mechanism). This layer learns the optimal way to combine visual and acoustic information.
-* **Prediction Head:** A final set of layers (often fully connected) takes the fused features and outputs predictions for the target task (e.g., benthic habitat classification), with the Bayesian nature providing a distribution over these predictions.
+* **Image Encoder:** A Convolutional Neural Network (CNN) backbone (e.g., a pre-trained ResNet, specifically adapted to be Bayesian) processes the optical imagery from AUVs. 📸
+* **Sonar Encoder(s):** Separate CNN backbones process the structured sonar data (bathymetry 📏, side-scan sonar 📡). These are adapted to handle the specific characteristics of sonar grids (e.g., single-channel or multi-channel inputs derived from `image_processing.py`).
+* **Fusion Layer:** Features extracted from each modality's encoder are concatenated or combined using a dedicated fusion layer (e.g., a fully connected network, attention mechanism). This layer learns the optimal way to combine visual and acoustic information.  🔗
+* **Prediction Head:** A final set of layers (often fully connected) takes the fused features and outputs predictions for the target task (e.g., benthic habitat classification  🐠), with the Bayesian nature providing a distribution over these predictions.
 
-### Visual representation
+### Visual representation  🖼️
 ![image](https://github.com/user-attachments/assets/3d799daf-b876-45a6-bc93-5837dd7bd80f)
 
-**2. Bayesian Neural Network Implementation:**
+**2. Bayesian Neural Network Implementation:** 💡
 The "Bayesian" aspect is achieved by converting deterministic layers (e.g., Linear, Conv2D) into their probabilistic counterparts using `bayesian-torch`. This means:
 
-* **Weight Distributions:** Instead of learning fixed weights, the model learns distributions over its weights, allowing it to output a distribution of predictions for a given input.
-* **Uncertainty Quantification:** The variance in these output predictions provides a direct measure of the model's confidence and epistemic uncertainty, which is vital for decision-making in ambiguous underwater settings.
+* **Weight Distributions:** Instead of learning fixed weights, the model learns **distributions over its weights**, allowing it to output a distribution of predictions for a given input.📊
+* **Uncertainty Quantification:** The variance in these output predictions provides a direct measure of the model's confidence and **epistemic uncertainty**, which is vital for decision-making in ambiguous underwater settings. 🌊
 
-**3. Foundation Model Concept:**
+**3. Foundation Model Concept:** 🚀
 The project aims to provide a **retrainable foundation model**. This implies:
-* The architecture is general enough to be applicable across various underwater mapping tasks.
-* It is pre-trained on a diverse dataset (e.g., Northern Britain benthic habitat data), providing strong initial feature representations.
-* Users can then fine-tune this pre-trained model (`multimodal.py` in `train/`) on their own smaller, specific datasets to adapt it to new areas or slightly different classification schemes, significantly reducing training time and data requirements.
+* The architecture is general enough to be applicable across various underwater mapping tasks. 🌐
+* It is pre-trained on a diverse dataset (e.g., Northern Britain benthic habitat data), providing strong initial feature representations.💪
+* Users can then **fine-tune** this pre-trained model (`multimodal.py` in `train/`) on their own smaller, specific datasets to adapt it to new areas or slightly different classification schemes, significantly reducing training time and data requirements. ⏱️
 
-**4. Unimodal Models:**
-The project also includes components (`unitmodal.py` in `train/` and potentially `base_models.py`) to train and evaluate models based on single modalities (e.g., image-only or sonar-only). This allows for ablation studies and comparison with the performance benefits of multimodal fusion.
+**4. Unimodal Models:**  🎯
+The project also includes components (`unitmodal.py` in `train/` and potentially `base_models.py`) to train and evaluate models based on **single modalities** (e.g.,  image-only 📸 or sonar-only 📡). This allows for ablation studies and comparison with the performance benefits of multimodal fusion.
 
 ### Visual representation
 ![image](https://github.com/user-attachments/assets/14dbb63f-864d-4fca-9bb5-fd26b91ea827)
@@ -604,7 +598,7 @@ Have questions about the project, found a bug, or want to contribute? Here are a
 
 * **Email:** For more direct or confidential inquiries, you can reach me at [phd01tm@sams.ac.uk](mailto:phd01tm@sams.ac.uk).
 
-* **LinkedIn (Optional):** Connect with the project lead/team on LinkedIn:
+* **LinkedIn:** Connect with the project lead/team on LinkedIn:
     * [Tom Morgan](https://www.linkedin.com/in/tom-morgan-8a73b129b/)
       
 # Citations
