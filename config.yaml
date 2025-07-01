@@ -1,0 +1,40 @@
+# Configuration for Multimodal AUV Examples
+
+Example_training_from_scratch:
+  script: "python -m Multimodal_AUV.Examples.Example_training_from_scratch"
+  args:
+    root_dir: "/path/to/your/input_data/dataset"
+    epochs_multimodal: 20
+    num_mc: 20
+    batch_size_multimodal: 20
+    lr_multimodal: 0.001
+
+Example_Retraining_model:
+  script: "python -m Multimodal_AUV.Examples.Example_Retraining_model"
+  args:
+    data_dir: "/path/to/your/input_data/dataset"
+    batch_size_multimodal: 20
+    num_epochs_multimodal: 20
+    num_mc_samples: 20
+    learning_rate_multimodal: 0.001
+    weight_decay_multimodal: 1e-5
+    bathy_patch_base: 30
+    sss_patch_base: 30
+
+Example_Inference_model:
+  script: "python -m Multimodal_AUV.Examples.Example_Inference_model"
+  args:
+    data_dir: "/path/to/your/input_data/dataset"
+    output_csv: "/path/to/save/your/results/inference.csv"
+    batch_size: 4
+    num_mc_samples: 20
+
+Process_AUV_Data:
+  script: "python your_script_name.py" # Replace 'your_script_name.py' with the actual script name
+  args:
+    raw_optical_images_folder: "/path/to/your/raw_auv_images"
+    geotiff_folder: "/path/to/your/auv_geotiffs"
+    output_folder: "/path/to/your/processed_auv_data"
+    exiftool_path: "C:/exiftool/"
+    window_size_meters: 30.0
+    image_enhancement_method: "AverageSubtraction"
