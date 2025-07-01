@@ -100,7 +100,7 @@ python your_script_name.py \
     --exiftool_path "C:/exiftool/" \
     --window_size_meters 30.0 \
     --image_enhancement_method "AverageSubtraction"
-
+```
 Understanding the Arguments:
 python your_script_name.py: This invokes the main preprocessing script. Replace your_script_name.py with the actual name of your Python file (e.g., preprocess_auv_data.py).
 
@@ -393,49 +393,79 @@ Customization: Experiment with different learning rates (e.g., 0.01, 0.0001) to 
 
 
 
-# Configuration REWRITE ALL THIS
+# Configuration
+The project's behavior and parameters are highly configurable, allowing you to easily adapt the pipeline and models to diverse datasets, training regimes, and specific requirements without altering the source code.
 
-The project's behavior and parameters can be easily adjusted through configuration files, allowing you to adapt the pipeline and models to different datasets, training regimes, or specific requirements without modifying the source code.
+All core parameters for data processing, model training, and inference are controlled via YAML configuration files. This approach ensures reproducibility, simplifies experimentation, and facilitates seamless collaboration.
 
-**1. Main Configuration File (Recommended):**
-Most overarching parameters for data preparation, training, and inference are controlled via a central configuration file. We recommend using a `.yaml` file for this purpose, located in the `Multimodal_AUV/config/` directory. This file would typically define:
+Key Configuration Areas:
+The configuration is organized to cover various stages of the AUV data processing and model lifecycle:
 
-* **Data Paths:** Input CSVs, GeoTIFF folders, output directories for processed data.
-* **Training Parameters:** Learning rate, batch size, number of epochs, optimizers, loss functions.
-* **Model Parameters:** Specific architecture choices (e.g., backbone, fusion layer dimensions), BNN prior settings.
-* **Experiment Settings:** Logging paths, checkpointing frequency, evaluation metrics.
+Data Management:
 
-**Example (Multimodal_AUV/config/default_config.yaml):**
-```yaml
-# Data paths
-input_csv: "path/to/your/input_data/combined_csv.csv"
-geotiff_dir: "path/to/your/input_data/Irish sonar/"
-output_processed_dir: "path/to/your/processed_output/"
+Input/Output Paths: Define locations for raw data (e.g., optical images, GeoTIFFs), processed outputs, and inference results.
 
-# Data preparation
-patch_size_meters: 20
-geotiff_channels: ["Bathy", "SSS"]
-image_dimensions: [224, 224]
+Data Preparation Parameters: Specify settings like patch sizes for bathymetry and SSS, image dimensions, and relevant GeoTIFF channels.
 
-# Model training
-model_type: "multimodal_bnn" # or "unimodal_bnn"
-num_classes: 6               # Sand, Mud, Rock, Gravel, Burrowed Mud, Kelp forest, Horse Mussel reef
-batch_size: 32
-learning_rate: 0.001
-epochs: 50
-early_stopping_patience: 10
-optimizer: "Adam"
-loss_function: "CrossEntropyLoss"
-device: "cuda" # or "cpu"
+Model Training & Retraining:
 
-# BNN Specifics (if applicable)
-prior_mu: 0.0
-prior_sigma: 1.0
+Core Training Parameters: Control fundamental aspects like learning rate, batch size, number of epochs, and optimization algorithms.
 
-# Inference
-prediction_threshold: 0.5
-output_prediction_dir: "path/to/save/inference_results/"
+Model Architecture: Configure choices such as model type (e.g., multimodal_bnn, unimodal_bnn), number of output classes, and specific layer dimensions.
+
+Bayesian Neural Network (BNN) Settings: Parameters for BNN priors, if applicable.
+
+Inference:
+
+Prediction Control: Define thresholds for classification and output formats for results.
+
+Configuration Examples and Usage:
+Below are examples reflecting the arguments used by various scripts within the project. These can be integrated into a single, comprehensive config.yaml file, or broken down into separate files for specific tasks.
+
 ```
+YAML
+
+#Configuration File 
+
+#General Project Settings (can be shared across scripts)
+global_settings:
+  data_root_dir: "/path/to/your/input_data/dataset"
+  output_base_dir: "/path/to/your/project_outputs"
+  num_mc_samples: 20 # Common for BNN inference/evaluation
+  multimodal_batch_size: 20 # Common batch size for multimodal models
+
+#--- Individual Script Configurations ---
+
+#Configuration for Example_training_from_scratch
+training_from_scratch:
+  epochs_multimodal: 20
+  lr_multimodal: 0.001
+  # root_dir and batch_size_multimodal can inherit from global_settings or be overridden here
+
+#Configuration for Example_Retraining_model
+retraining_model:
+  num_epochs_multimodal: 20 # Renamed from 'epochs_multimodal' in original script
+  learning_rate_multimodal: 0.001 # Renamed from 'lr_multimodal'
+  weight_decay_multimodal: 1e-5
+  bathy_patch_base: 30
+  sss_patch_base: 30
+  # data_dir, batch_size_multimodal, num_mc_samples can inherit from global_settings or be overridden
+
+#Configuration for Example_Inference_model
+inference_model:
+  output_csv: "%(output_base_dir)s/inference_results/inference.csv" # Example using global var
+  batch_size: 4 # Specific batch size for inference
+
+#Configuration for your_script_name.py (e.g., for raw data processing)
+raw_data_processing:
+  raw_optical_images_folder: "%(data_root_dir)s/raw_auv_images"
+  geotiff_folder: "%(data_root_dir)s/auv_geotiffs"
+  output_folder: "%(output_base_dir)s/processed_auv_data"
+  exiftool_path: "C:/exiftool/" # Note: This might need to be OS-specific or relative
+  window_size_meters: 30.0
+  image_enhancement_method: "AverageSubtraction"
+```
+
 # Model architecture
 
 This project leverages sophisticated **Bayesian Neural Network (BNN)** architectures designed for robust multimodal data fusion and uncertainty quantification in underwater environments. The core design principles are modularity and adaptability, allowing for both unimodal and multimodal processing.
