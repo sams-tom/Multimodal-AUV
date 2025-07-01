@@ -5,9 +5,9 @@ also presents a model as a retrainable foundation model for further tweaking to 
 
 
  ## 🚧 Problem Addressed 🚧
-**Environmental mapping** within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of light 🔦, turbidity  🌊, and the physical constraints of acoustic and optical sensors 📸  . These factors contribute to **noisy, incomplete, and uncertain data acquisition**, hindering the generation of reliable environmental characterizations.📉
+**Environmental mapping** within complex underwater environments presents significant challenges due to inherent data complexities and sensor limitations. Traditional methodologies often struggle to account for the variable conditions encountered in marine settings, such as attenuation of **light 🔦, turbidity  🌊, and the physical constraints of acoustic and optical sensors 📸** . These factors contribute to **noisy, incomplete, and uncertain data acquisition**, hindering the generation of reliable environmental characterizations.📉
 
-Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as marine conservation🌿, resource management 🐠, or autonomous navigation 🧭, understanding the **confidence bounds** of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs), including high-resolution multibeam sonar 📡, side-scan sonar 🛰️, and optical imagery 📷, further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
+Furthermore, conventional machine learning models typically yield point predictions without quantifying associated uncertainties. In applications requiring high-stakes decision-making, such as **marine conservation🌿, resource management 🐠, or autonomous navigation 🧭**, understanding the **confidence bounds** of predictions is critical for robust risk assessment and operational planning. The fusion of diverse data modalities collected by Autonomous Underwater Vehicles (AUVs), including high-resolution **multibeam sonar 📡, side-scan sonar 🛰️, and optical imagery 📷**, further compounds the challenge, necessitating advanced computational approaches to effectively integrate and interpret these disparate information streams.
 
 This project addresses these critical limitations by developing and deploying **multimodal Bayesian Neural Networks (BNNs)**. This approach explicitly models and quantifies the **epistemic and aleatoric uncertainties** inherent in complex underwater datasets, providing not only robust environmental classifications but also **quantifiable measures of prediction confidence**. By leveraging the **complementary strengths of multiple sensor modalities**, the framework aims to deliver enhanced accuracy, scalability, and decision-making capabilities for comprehensive underwater environmental understanding. ✨
 
@@ -65,21 +65,21 @@ Multimodal_AUV/
 ```
 # Repo features 🚀
 Here are some of the key capabilities of this GITHUB
-* **End-to-End Pipeline**:The repo offers a complete pipeline, allowing you to turn raw georeferenced imagery📸 and sonar tiffs 📡into valid predictions with quantified uncertainty by training Bayesian Neural Networks.
+* **End-to-End Pipeline**:The repo offers a complete pipeline, allowing you to turn raw georeferenced imagery📸 and sonar tiffs 📡into **valid predictions with quantified uncertainty** by training Bayesian Neural Networks.
 
 * **Model to predict benthic habitat class (Northern Britain)**: Can download and run a model to evaluate bathymetric, sidescan and image "pairs"
 and predict specific  benthic habitat classes found in Northern Britain: **Sand 🏖️, Mud 🏞️, Rock 🪨, Gravel ⚫, Burrowed Mud (PMF) 🕳️, Kelp forest (PMF) 🌳, or Horse Mussel reef (PMF) 🐚**.
  
-* **Retrainable foundation model**: Code to download and retrain a pretrained network for combining bathymetric, sidescan sonar and image for a new datasets, adapting the model to your specific needs with reduced computational requirements. 🔄
+* **Retrainable foundation model**: Code to download and retrain a **pretrained network** for combining bathymetric, sidescan sonar and image for a new datasets, adapting the model to your specific needs with reduced computational requirements. 🔄
 
-* **Training a model from scratch**: Code to take sonar and image and train a completely new model returning a  CSV of metrics 📊, the model itself 🧠, and confusion matrices 📈.
+* **Training a model from scratch**: Code to take sonar and image and train a **completely new model** returning a  CSV of metrics 📊, the model itself 🧠, and confusion matrices 📈.
 
-* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the **optimal sonar patch** to maximise predicitve accuracy (high compute requirements! ⚡) and to train unimodal and multimodal models to compare the beneft of multimodality. 🔬
+* **Options to optimise sonar patch sizes and to train unimodal models**: Code to find the **optimal sonar patch** to maximise predicitve accuracy (high compute requirements! ⚡) and to train unimodal and multimodal models to **compare the benefits of multimodality**. 🔬
  
 # Getting started with this repo
 This section guides you through setting up the project, installing dependencies, and preparing your data for processing and model training/inference.
 
-1. **Clone the Repository**
+1. **Clone the Repository**:
    
    First, clone the project repository to your local machine:
    ```
@@ -89,7 +89,8 @@ This section guides you through setting up the project, installing dependencies,
    cd Multimodal-AUV # Navigate into the cloned directory
   
    ```
-2. **Create and Activate Conda Environment**
+   
+2. **Create and Activate Conda Environment**:
    We recommend using Conda to manage the project's dependencies for a consistent and isolated     environment.
    
    Create the Conda environment:
@@ -106,7 +107,7 @@ This section guides you through setting up the project, installing dependencies,
    ```
    You should see (multimodal_auv) at the beginning of your terminal prompt, indicating the  environment is active.
 
-3. **Install Dependencies**
+3. **Install Dependencies**:
    With your Conda environment active, install all necessary Python packages listed in the  requirements.txt file.
    ```
    Bash
@@ -124,9 +125,9 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 
 ```
 
-4. **Prepare Data Folders**
+4. **Prepare Data Folders**:
    
- Your project requires specific data structures for input and output. If you run the examples below this will be structored correctly. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
+   Your project requires specific data structures for input and output. If you run the examples below this will be structored correctly. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
 
 Recommended Folder Structure:
 ```
@@ -157,7 +158,7 @@ Multimodal_AUV/
 * ```data/individual_data_point/auv_image.jpg```: The individual image for prediction
 * ```data/individual_data_point/local_side_scan_image.jpg```: The individual side scan image local to the camera image for prediction
 * ```data/individual_data_point/local_bathy_image.jpg```: The individual bathymetric image local to the camera image for prediction
-* ```data/individual_data_point/LABEL.txt```: The label to predict NOT REQUIRED IF YOURE JUST RUNNING INFERENCE AND NOT TRAINING
+* ```data/individual_data_point/LABEL.txt```: The label to predict. **N.B.** Not required if youre not training/retraining a model.
 
 **PUT IN PHOTO OF DATA STRUCUTRE** 
 
@@ -169,9 +170,9 @@ Multimodal_AUV/
 
 ## Action Required:
 
-* **Create these directories manually** within your cloned repository if they don't exist. **Note**: Example of data preparation below will create the correct structure automatically.
+* **Create these directories manually** within your cloned repository if they don't exist. **Note**: If you run the below code including the example of data preparation the correct structure will be created automatically.
 
-* **Update ```config.yaml```: Open your ```config.yaml``` file and set the ```data_root_dir```, ```output_base_dir```, and other relevant paths within ```training_from_scratch```, ```retraining_model```, ```inference_model```, and ```raw_data_processing``` sections to match the paths you've created.
+* **Update** ```config.yaml```: Open your ```config.yaml``` file and set the ```data_root_dir```, ```output_base_dir```, and other relevant paths within ```training_from_scratch```, ```retraining_model```, ```inference_model```, and ```raw_data_processing``` sections to match the paths you've created.
    
 # Usage examples
 ## 1. Run the End-to-End Data Preparation Pipeline ⚙️
@@ -191,9 +192,9 @@ python -m Example_data_preparation \
 
 * **```python Example_data_preparation.py```**: This invokes the main preprocessing script.
 
-* **```--raw_optical_images_folder```*** ```"/path/to/your/raw/optical_images"```
+* **```--raw_optical_images_folder```**: ```"/path/to/your/raw/optical_images"```
      
-     Purpose: Specifies the absolute path to the directory containing a collection of folders with your original, unprocessed JPG optical image files from the AUV. This should be as its downloaded from your datasource. The structure should have folders inside (at least one) containing images with metadata accessible by Exiftool and organised in this structure: 
+     **Purpose**: Specifies the absolute path to the directory containing a collection of folders with your original, unprocessed JPG optical image files from the AUV. This should be as its downloaded from your datasource. The structure should have folders inside (at least one) containing images with metadata accessible by Exiftool and organised in this structure: 
           ```<comment>
               <altitude>1.52</altitude>
               <depth>25.78</depth>
@@ -207,13 +208,13 @@ python -m Example_data_preparation \
           </comment>``` 
      If not you will have to rewrite the metadata part of the function or organise your own data function.
      
-     Action Required: You MUST replace ```/path/to/your/raw/optical_images``` with the actual, full path to your raw optical images folder on your local machine.
+     **Action Required**: You MUST replace ```/path/to/your/raw/optical_images``` with the actual, full path to your raw optical images folder on your local machine.
 
-* **```--geotiff_folder```** ```"/path/to/your/auv_geotiffs"```
+* **```--geotiff_folder```**: ```"/path/to/your/auv_geotiffs"```
 
-  Purpose: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data. The bathymetry tiffs must have "bathy" in the file name, the side-scan must have "SSS" in the file name. 
+  **Purpose**: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data. The bathymetry tiffs must have "bathy" in the file name, the side-scan must have "SSS" in the file name. 
   
-  Action Required: You MUST replace ```/path/to/your/auv_geotiffs``` with the actual, full path to your GeoTIFFs folder.
+  **Action Required**: You MUST replace ```/path/to/your/auv_geotiffs``` with the actual, full path to your GeoTIFFs folder.
 
   Example Structure:
   
@@ -222,36 +223,36 @@ python -m Example_data_preparation \
   ├── side_scan.tif
   └── ...```
 
-* **```--output_folder```** ```"/path/to/your/processed_auv_data"```
+* **```--output_folder```**: ```"/path/to/your/processed_auv_data"```
   
-  Purpose: Designates the root directory where all the processed and organized output data will be saved. This is where the processed optical images, sonar patches, and the main coords.csv file will reside.
+ **Purpose**: Designates the root directory where all the processed and organized output data will be saved. This is where the processed optical images, sonar patches, and the main coords.csv file will reside.
   
-  Action Required: You MUST replace ```/path/to/your/processed_auv_data``` with your desired output directory.
+  **Action Required**: You MUST replace ```/path/to/your/processed_auv_data``` with your desired output directory.
 
 * **```--exiftool_path```** ```"C:/exiftool/"```
 
-  Purpose: Provides the absolute path to the directory where the exiftool.exe executable is located. This is essential for extracting GPS and timestamp information from your optical images.
+  **Purpose**: Provides the absolute path to the directory where the exiftool.exe executable is located. This is essential for extracting GPS and timestamp information from your optical images.
   
-  Action Required: You MUST download and unpack exiftool and then replace
+  **Action Required**: You MUST download and unpack exiftool and then replace
 ```"C:/exiftool/exiftool.exe "``` with the correct path to your ExifTool installation, it MUST point at the .exe itself. For Linux/macOS, this might be /usr/bin/ or /usr/local/bin/ if installed globally.
 
 * **```--window_size_meters 30.0```**
 
-  Purpose: Sets the desired side length (in meters) for the square patches that will be extracted from your GeoTIFF files (e.g., a 30.0 value means a 30m x 30m sonar patch).
+  **Purpose**: Sets the desired side length (in meters) for the square patches that will be extracted from your GeoTIFF files (e.g., a 30.0 value means a 30m x 30m sonar patch).
   
-  Customization: Adjust this value based on the scale of features you want to capture in your sonar data for machine learning and the typical coverage of your optical images. 30 meters has been found optimal in most scenarios
+  **Customization**: Adjust this value based on the scale of features you want to capture in your sonar data for machine learning and the typical coverage of your optical images. 30 meters has been found optimal in most scenarios
 
 * **```--image_enhancement_method```** ```"AverageSubtraction"```
 
-  Purpose: Specifies the method to be used for enhancing the optical images. This can improve the visual quality and potentially the feature extraction for machine learning.
+  **Purpose**: Specifies the method to be used for enhancing the optical images. This can improve the visual quality and potentially the feature extraction for machine learning.
   
-  Customization: Choose between "AverageSubtraction" (a simpler method) or "CLAHE" (Contrast Limited Adaptive Histogram Equalization, often more effective for underwater images). The default is AverageSubtraction.
+  **Customization**: Choose between "AverageSubtraction" (a simpler method) or "CLAHE" (Contrast Limited Adaptive Histogram Equalization, often more effective for underwater images). The default is AverageSubtraction.
 
 * **```--skip_bathy_combine (Optional flag)```**
 
-  Purpose: If this flag is present, the post-processing step that attempts to combine multiple bathymetry channels into a single representation will be skipped.
+  **Purpose**: If this flag is present, the post-processing step that attempts to combine multiple bathymetry channels into a single representation will be skipped.
   
-  Usage: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
+  **Usage**: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
 
 ### Output Data Structure
 
@@ -378,9 +379,9 @@ python -m Multimodal_AUV.Examples.Example_Retraining_model \
 
 * **```--data_dir``` ```""/path/to/your/input_data/dataset""```**:
 
- **Purpose**: Specifies the absolute path to the directory containing your multimodal input data for retraining (e.g., GeoTIFFs, corresponding CSVs, etc.).
- 
- **Action Required**: You MUST replace ```""/path/to/your/input_data/dataset""``` with the actual absolute path to your dataset on your local machine.
+   **Purpose**: Specifies the absolute path to the directory containing your multimodal input data for retraining (e.g., GeoTIFFs, corresponding CSVs, etc.).
+   
+   **Action Required**: You MUST replace ```""/path/to/your/input_data/dataset""``` with the actual absolute path to your dataset on your local machine.
 
 * **```--batch_size_multimodal 20```**:
 
@@ -396,9 +397,9 @@ python -m Multimodal_AUV.Examples.Example_Retraining_model \
 
 *  **```num_mc_samples 20```**: 
 
-  **Purpose**: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
-  
-  **Customization**: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
+    **Purpose**: Specifies the number of Monte Carlo (MC) samples to draw from the Bayesian Neural Network's posterior distribution during training. A higher number of samples leads to a more robust estimation of predictive uncertainty.
+    
+    **Customization**: For production, you might use 100 or more samples for better uncertainty estimation. For quicker testing or initial training, 5-10 samples are sufficient.
 
 * **```--learning_rate_multimodal 0.001```**:
 
@@ -485,20 +486,19 @@ python -m Multimodal_AUV.Examples.Example_training_from_scratch \
 
 
 # ⚙️ Configuration ⚙️
-The project's behavior and parameters are highly configurable, allowing you to easily adapt the pipeline and models to diverse datasets, training regimes, and specific requirements without altering the source code.✨
 
 All core parameters for data processing, model training, and inference are controlled via **YAML configuration files**. This approach ensures reproducibility 🔁, simplifies experimentation 🧪, and facilitates seamless collaboration 🤝.
 
-## Key Configuration Areas:
+**Key Configuration Areas**:
 The configuration is organized to cover various stages of the AUV data processing and model lifecycle:
 
-## Data Management:  📊
+### Data Management:  📊
 
 Input/Output Paths: Define locations for raw data  (e.g., optical images 📸, GeoTIFFs 🗺️), processed outputs, and inference results.
 
 Data Preparation Parameters: Specify settings like patch sizes forbathymetry 📏 and SSS, image dimensions 🖼️,, and relevant GeoTIFF channels.
 
-## Model Training & Retraining: 🧠
+### Model Training & Retraining: 🧠
 
 Core Training Parameters: Control fundamental aspects like learning rate 📉, batch size 📦, number of epochs ⏳, and optimization algorithms.
 
@@ -506,11 +506,11 @@ Model Architecture: Configure choices such as model type (e.g., multimodal_bnn, 
 
 Bayesian Neural Network (BNN) Settings: Parameters for BNN priors, if applicable.
 
-## Inference:  🔮
+### Inference:  🔮
 
 Prediction Control: Define thresholds for classification and output formats for results.
 
-Configuration Examples and Usage:
+### Configuration Examples and Usage:
 Below are examples reflecting the arguments used by various scripts within the project. These can be integrated into a single, comprehensive config.yaml file, or broken down into separate files for specific tasks.
 
 ```
@@ -559,16 +559,17 @@ raw_data_processing:
 
 # 🧠 Model Architecture 🏗️
 
-This project leverages sophisticated **Bayesian Neural Network (BNN)** architectures designed for robust multimodal data fusion and uncertainty quantification in underwater environments. The core design principles are **modularity** and **adaptability** , allowing for both unimodal and multimodal processing. ✨
+This project leverages sophisticated ** Multimodal Bayesian Neural Network (BNN)** architectures designed for robust data fusion and uncertainty quantification in underwater environments. The core design principles are **modularity** and **adaptability** , allowing for both unimodal and multimodal processing. ✨
 
 ## **1. Multimodal Fusion Architecture:**  🤝
-The primary model (`multimodal.py` in `train/` and `base_models.py`) is designed to integrate information from different sensor modalities:
+The primary model (used in 2.Predict Benthic Habitat Class using a Pre-trained Model 🐠, 3. Retrain a Pre-trained Model on a New Dataset 🔄, 4. Train a New Multimodal Model from Scratch 🧠) is designed to integrate information from different sensor modalities:
 * **Image Encoder:** A Convolutional Neural Network (CNN) backbone (e.g., a pre-trained ResNet, specifically adapted to be Bayesian) processes the optical imagery from AUVs. 📸
-* **Sonar Encoder(s):** Separate CNN backbones process the structured sonar data (bathymetry 📏, side-scan sonar 📡). These are adapted to handle the specific characteristics of sonar grids (e.g., single-channel or multi-channel inputs derived from `image_processing.py`).
+* **Bathymetric Sonar Encoder(s):** A Convolutional Neural Network (CNN) backbone (e.g., a pre-trained ResNet, specifically adapted to be Bayesian) processes the bathymetric sonar from AUVs. 📏
+* * **Side scan sonar Sonar Encoder(s):** A Convolutional Neural Network (CNN) backbone (e.g., a pre-trained ResNet, specifically adapted to be Bayesian) processes the Side scan sonar from AUVs. 📡
 * **Fusion Layer:** Features extracted from each modality's encoder are concatenated or combined using a dedicated fusion layer (e.g., a fully connected network, attention mechanism). This layer learns the optimal way to combine visual and acoustic information.  🔗
 * **Prediction Head:** A final set of layers (often fully connected) takes the fused features and outputs predictions for the target task (e.g., benthic habitat classification  🐠), with the Bayesian nature providing a distribution over these predictions.
 
-### Visual representation  🖼️
+### Diagram of the Multimodal Network:  🖼️
 ![image](https://github.com/user-attachments/assets/3d799daf-b876-45a6-bc93-5837dd7bd80f)
 
 **2. Bayesian Neural Network Implementation:** 💡
@@ -578,15 +579,15 @@ The "Bayesian" aspect is achieved by converting deterministic layers (e.g., Line
 * **Uncertainty Quantification:** The variance in these output predictions provides a direct measure of the model's confidence and **epistemic uncertainty**, which is vital for decision-making in ambiguous underwater settings. 🌊
 
 **3. Foundation Model Concept:** 🚀
-The project aims to provide a **retrainable foundation model**. This implies:
+In addition, this project aims to provide a **retrainable foundation model**:
 * The architecture is general enough to be applicable across various underwater mapping tasks. 🌐
 * It is pre-trained on a diverse dataset (e.g., Northern Britain benthic habitat data), providing strong initial feature representations.💪
-* Users can then **fine-tune** this pre-trained model (`multimodal.py` in `train/`) on their own smaller, specific datasets to adapt it to new areas or slightly different classification schemes, significantly reducing training time and data requirements. ⏱️
+* Users can then **fine-tune** this pre-trained model (3. Retrain a Pre-trained Model on a New Dataset 🔄) on their own smaller, specific datasets to adapt it to new areas or different classification schemes, significantly reducing training time and data requirements. ⏱️
 
 **4. Unimodal Models:**  🎯
 The project also includes components (`unitmodal.py` in `train/` and potentially `base_models.py`) to train and evaluate models based on **single modalities** (e.g.,  image-only 📸 or sonar-only 📡). This allows for ablation studies and comparison with the performance benefits of multimodal fusion.
 
-### Visual representation
+### Diagram of the Unimodal Networks: 🖼️
 ![image](https://github.com/user-attachments/assets/14dbb63f-864d-4fca-9bb5-fd26b91ea827)
 
 
