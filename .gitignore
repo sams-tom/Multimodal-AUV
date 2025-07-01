@@ -9,7 +9,7 @@
 *.user
 *.userosscache
 *.sln.docstates
-
+*.sln
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -366,3 +366,4 @@ models/bayesian_model_typebathy.pth
 models/bayesian_model_typeimage.pth
 models/bayesian_model_typesss.pth
 
+testEnvironments.json
