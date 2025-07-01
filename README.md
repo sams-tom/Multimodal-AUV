@@ -79,7 +79,7 @@ and predict specific  benthic habitat classes found in Northern Britain: **Sand 
 # Getting started with this repo
 This section guides you through setting up the project, installing dependencies, and preparing your data for processing and model training/inference.
 
-1. Clone the Repository
+1. **Clone the Repository**
    
    First, clone the project repository to your local machine:
    ```
@@ -89,7 +89,7 @@ This section guides you through setting up the project, installing dependencies,
    cd Multimodal-AUV # Navigate into the cloned directory
   
    ```
-2. Create and Activate Conda Environment
+2. **Create and Activate Conda Environment**
    We recommend using Conda to manage the project's dependencies for a consistent and isolated     environment.
    
    Create the Conda environment:
@@ -106,7 +106,7 @@ This section guides you through setting up the project, installing dependencies,
    ```
    You should see (multimodal_auv) at the beginning of your terminal prompt, indicating the  environment is active.
 
-3. Install Dependencies
+3. **Install Dependencies**
    With your Conda environment active, install all necessary Python packages listed in the  requirements.txt file.
    ```
    Bash
@@ -114,19 +114,19 @@ This section guides you through setting up the project, installing dependencies,
    pip install -r requirements.txt
    ```
 Important Note on GPU Support:
-In order to train quickly this train utilises PyTorch with CUDA for GPU acceleration. However, the requirements.txt file does not includ PyTorch (torch, torchvision, torchaudio) and NVIDIA CUDA runtime dependencies as these need to be downloaded to fit with your local CUDA toolkit or GPU driver setup. Navigate to this webpage: https://pytorch.org/get-started/locally/ select your requirements and then copy the command and run that locally.
+In order to train quickly this project utilises PyTorch with CUDA for GPU acceleration. However, the requirements.txt file does not includ PyTorch (torch, torchvision, torchaudio) and NVIDIA CUDA runtime dependencies as these need to be downloaded to fit with your local CUDA toolkit or GPU driver setup. Navigate to this webpage: https://pytorch.org/get-started/locally/ select your requirements and then copy the command and run that locally.
 
-For example, for CUDA 1..8, Python on  windows:
+For example, for CUDA 11.8, Python on  windows:
 ```
 Bash
 # Then, install PyTorch with CUDA via Conda
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 ```
-This ensures Conda handles the complex GPU-related package management.
 
-4. Prepare Data Folders
-Your project requires specific data structures for input and output. If you run the examples below this will be structored correctly. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
+4. **Prepare Data Folders**
+   
+ Your project requires specific data structures for input and output. If you run the examples below this will be structored correctly. Please organize your data as follows, and update the paths in your config.yaml file accordingly.
 
 Recommended Folder Structure:
 ```
@@ -150,7 +150,7 @@ Multimodal_AUV/
 ├── requirements.txt         # List of Python dependencies
 └── README.md
 ```
-Clarifying Data Folder Contents:
+## Clarifying Data Folder Contents:
 
 * ```data/```: Folder containing folders of paired data. Your training scripts' ```--root_dir``` would typically point here.
 * ```data/individual_data_point/```: Example of folder within folder holding required data files
@@ -174,11 +174,11 @@ Clarifying Data Folder Contents:
 * **Update ```config.yaml```: Open your ```config.yaml``` file and set the ```data_root_dir```, ```output_base_dir```, and other relevant paths within ```training_from_scratch```, ```retraining_model```, ```inference_model```, and ```raw_data_processing``` sections to match the paths you've created.
    
 # Usage examples
-## 1.Run the End-to-End Data Preparation Pipeline ⚙️
+## 1. Run the End-to-End Data Preparation Pipeline ⚙️
 To preprocess your AUV sonar and optical image data, execute the following command from your terminal:
 
 ```bash
-python your_script_name.py \
+python Example_data_preparation.py \
     --raw_optical_images_folder "/path/to/your/raw_auv_images" \
     --geotiff_folder "/path/to/your/auv_geotiffs" \
     --output_folder "/path/to/your/processed_auv_data" \
@@ -186,85 +186,99 @@ python your_script_name.py \
     --window_size_meters 30.0 \
     --image_enhancement_method "AverageSubtraction"
 ```
-Understanding the Arguments:
-python your_script_name.py: This invokes the main preprocessing script. Replace your_script_name.py with the actual name of your Python file (e.g., preprocess_auv_data.py).
 
---raw_optical_images_folder "/path/to/your/raw/optical_images"
+## Understanding the Arguments:
 
-Purpose: Specifies the absolute path to the directory containing your original, unprocessed JPG optical image files from the AUV.
+* **```python Example_data_preparation.py```**: This invokes the main preprocessing script.
 
-Action Required: You MUST replace /path/to/your/raw/optical_images with the actual, full path to your raw optical images folder on your local machine.
+* **```--raw_optical_images_folder```*** ```"/path/to/your/raw/optical_images"```
+     
+     Purpose: Specifies the absolute path to the directory containing a collection of folders with your original, unprocessed JPG optical image files from the AUV. This should be as its downloaded from your datasource. The structure should have folders inside (at least one) containing images with metadata accessible by Exiftool and organised in this structure: 
+          ```<comment>
+              <altitude>1.52</altitude>
+              <depth>25.78</depth>
+              <heading>123.45</heading>
+              <pitch>2.10</pitch>
+              <roll>-0.75</roll>
+              <surge>0.15</surge>
+              <sway>-0.05</sway>
+              <lat>56.12345</lat>
+              <lon>-3.98765</lon>
+          </comment>``` 
+     If not you will have to rewrite the metadata part of the function or organise your own data function.
+     
+     Action Required: You MUST replace /path/to/your/raw/optical_images with the actual, full path to your raw optical images folder on your local machine.
 
-Example Structure:
+* **```--geotiff_folder```** ```"/path/to/your/auv_geotiffs"```
 
-/path/to/your/raw/optical_images/
-├── IMG_0001.JPG
-├── IMG_0002.JPG
-└── ...
---geotiff_folder "/path/to/your/auv_geotiffs"
+  Purpose: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data. The bathymetry tiffs must have "bathy" in the file name, the side-scan must have "SSS" in the file name. 
+  
+  Action Required: You MUST replace /path/to/your/auv_geotiffs with the actual, full path to your GeoTIFFs folder.
 
-Purpose: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data.
+  Example Structure:
+  
+  ```/path/to/your/auv_geotiffs/
+  ├── bathymetry.tif
+  ├── side_scan.tif
+  └── ...```
 
-Action Required: You MUST replace /path/to/your/auv_geotiffs with the actual, full path to your GeoTIFFs folder.
+* **```--output_folder```** ```"/path/to/your/processed_auv_data"```
+  
+  Purpose: Designates the root directory where all the processed and organized output data will be saved. This is where the processed optical images, sonar patches, and the main coords.csv file will reside.
+  
+  Action Required: You MUST replace ```/path/to/your/processed_auv_data``` with your desired output directory.
 
-Example Structure:
+* **```--exiftool_path```** ```"C:/exiftool/"```
 
-/path/to/your/auv_geotiffs/
-├── bathymetry.tif
-├── side_scan.tif
-└── ...
---output_folder "/path/to/your/processed_auv_data"
+  Purpose: Provides the absolute path to the directory where the exiftool.exe executable is located. This is essential for extracting GPS and timestamp information from your optical images.
+  
+  Action Required: You MUST download and unpack exiftool and then replace
+```"C:/exiftool/exiftool.exe "``` with the correct path to your ExifTool installation, it MUST point at the .exe itself. For Linux/macOS, this might be /usr/bin/ or /usr/local/bin/ if installed globally.
 
-Purpose: Designates the root directory where all the processed and organized output data will be saved. This is where the processed optical images, sonar patches, and the main coords.csv file will reside.
+* **```--window_size_meters 30.0```**
 
-Action Required: You MUST replace /path/to/your/processed_auv_data with your desired output directory.
+  Purpose: Sets the desired side length (in meters) for the square patches that will be extracted from your GeoTIFF files (e.g., a 30.0 value means a 30m x 30m sonar patch).
+  
+  Customization: Adjust this value based on the scale of features you want to capture in your sonar data for machine learning and the typical coverage of your optical images. 30 meters has been found optimal in most scenarios
 
---exiftool_path "C:/exiftool/"
+* **```--image_enhancement_method```** ```"AverageSubtraction"```
 
-Purpose: Provides the absolute path to the directory where the exiftool.exe executable is located. This is essential for extracting GPS and timestamp information from your optical images.
+  Purpose: Specifies the method to be used for enhancing the optical images. This can improve the visual quality and potentially the feature extraction for machine learning.
+  
+  Customization: Choose between "AverageSubtraction" (a simpler method) or "CLAHE" (Contrast Limited Adaptive Histogram Equalization, often more effective for underwater images). The default is AverageSubtraction.
 
-Action Required: You MUST replace "C:/exiftool/" with the correct path to your ExifTool installation. For Linux/macOS, this might be /usr/bin/ or /usr/local/bin/ if installed globally.
+* **```--skip_bathy_combine (Optional flag)```**
 
---window_size_meters 30.0
+  Purpose: If this flag is present, the post-processing step that attempts to combine multiple bathymetry channels into a single representation will be skipped.
+  
+  Usage: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
 
-Purpose: Sets the desired side length (in meters) for the square patches that will be extracted from your GeoTIFF files (e.g., a 30.0 value means a 30m x 30m sonar patch).
+##Output Data Structure
+Upon successful execution, your ```--output_folder``` will contain a structured dataset. Here's an example of the typical output:
+   ```
+   /path/to/your/processed_auv_data/
+   ├── coords.csv
+   ├── image_0001/
+   │   ├── image_0001_processed.jpg  # Enhanced optical image
+   │   ├── bathymetry_patch.tif      # Extracted bathymetry patch
+   │   ├── side_scan_patch.tif       # Extracted side-scan sonar patch
+   │   └── (other_geotiff_name)_patch.tif
+   ├── image_0002/
+   │   ├── image_0002_processed.jpg
+   │   ├── bathymetry_patch.tif
+   │   └── ...
+   └── ...
+   ```
 
-Customization: Adjust this value based on the scale of features you want to capture in your sonar data for machine learning and the typical coverage of your optical images.
+* **coords.csv**: A primary metadata file containing entries for each processed optical image, including its filename, geographical coordinates (latitude, longitude), timestamp, and the relative path to its corresponding processed image and sonar patches within the output structure.
 
---image_enhancement_method "CLAHE"
-
-Purpose: Specifies the method to be used for enhancing the optical images. This can improve the visual quality and potentially the feature extraction for machine learning.
-
-Customization: Choose between "AverageSubtraction" (a simpler method) or "CLAHE" (Contrast Limited Adaptive Histogram Equalization, often more effective for underwater images). The default is AverageSubtraction.
-
---skip_bathy_combine (Optional flag)
-
-Purpose: If this flag is present, the post-processing step that attempts to combine multiple bathymetry channels into a single representation will be skipped.
-
-Usage: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
-
-Output Data Structure
-Upon successful execution, your --output_folder will contain a structured dataset. Here's an example of the typical output:
-
-/path/to/your/processed_auv_data/
-├── coords.csv
-├── image_0001/
-│   ├── image_0001_processed.jpg  # Enhanced optical image
-│   ├── bathymetry_patch.tif      # Extracted bathymetry patch
-│   ├── side_scan_patch.tif       # Extracted side-scan sonar patch
-│   └── (other_geotiff_name)_patch.tif
-├── image_0002/
-│   ├── image_0002_processed.jpg
-│   ├── bathymetry_patch.tif
-│   └── ...
-└── ...
-coords.csv: A primary metadata file containing entries for each processed optical image, including its filename, geographical coordinates (latitude, longitude), timestamp, and the relative path to its corresponding processed image and sonar patches within the output structure.
-
-image_XXXX/ subfolders: Each subfolder is named after the processed optical image and contains:
+* **image_XXXX/ subfolders**: Each subfolder is named after the processed optical image and contains:
 
 The processed optical image itself.
 
-GeoTIFF patches: Individual GeoTIFF files representing the extracted square patches from each of your input GeoTIFFs (e.g., bathymetry, side-scan sonar) for that specific location.
+* **GeoTIFF patches** : Individual GeoTIFF files representing the extracted square patches from each of your input GeoTIFFs (e.g., bathymetry, side-scan sonar) for that specific location.
+
+
 ## 2.Predict Benthic Habitat Class using a Pre-trained Model 🐠
 Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network. This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
 
