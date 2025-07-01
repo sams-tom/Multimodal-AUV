@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import argparse
 
-# Assuming these imports are correctly set up in your project
+# Defined in project
 from Multimodal_AUV.models.model_utils import define_models
 from Multimodal_AUV.utils.device import move_models_to_device, check_model_devices
 from Multimodal_AUV.config.paths import setup_environment_and_devices
@@ -24,7 +24,7 @@ def main(
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
     root_dir: str,
-    devices: torch.device # Changed to a single device for consistency with the original code, can be adjusted for multi-GPU
+    devices: torch.device 
 ):
     # Get the root logger
     root_logger = logging.getLogger()
@@ -90,7 +90,7 @@ def main(
         optimizer=optimizers["multimodal_model"],
         lr_scheduler=schedulers["multimodal_model"],
         num_epochs=training_params["num_epochs_multimodal"],
-        device=devices[0], # Changed to single device
+        device=devices[0],
         model_type="multimodal",
         bathy_patch_type=training_params["bathy_patch_base"],
         sss_patch_type=training_params["sss_patch_base"],
@@ -104,14 +104,14 @@ def main(
 
 
 if __name__ == "__main__":
+
+    #Set up args 
     parser = argparse.ArgumentParser(description="Train a multimodal AUV model.")
     parser.add_argument('--root_dir', type=str, default='./data/',
                         help='Root directory for datasets and outputs.')
-    parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
-                        help='Device to use for training (e.g., "cuda:0" or "cpu").')
     parser.add_argument('--epochs_multimodal', type=int, default=30,
                         help='Number of epochs for multimodal model training.')
-    parser.add_argument('--num_mc', type=int, default=12,
+    parser.add_argument('--num_mc', type=int, default=5,
                         help='Number of Monte Carlo samples for Bayesian models.')
     parser.add_argument('--batch_size_multimodal', type=int, default=12,
                         help='Batch size for multimodal training.')
@@ -121,14 +121,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Setup environment and devices using the parsed arguments
-    # Note: setup_environment_and_devices might still return a device based on its internal logic
-    # but we'll prioritize the argparse `device` for model placement.
-    # Ensure setup_environment_and_devices is compatible with accepting these paths or adjust its role.
-    # For simplicity, assuming setup_environment_and_devices just returns the device
-    # and other paths are handled by passing them directly to main.
-    # If setup_environment_and_devices actually *sets* these paths, you'll need to adapt it.
-
+   
      # Setup devices based on your utility function (using get_empty_gpus as defined or imported)
     devices = []
     if torch.cuda.is_available():
@@ -142,7 +135,7 @@ if __name__ == "__main__":
         devices = [torch.device("cpu")]
         print("CUDA not available. Using CPU.")
 
-
+    #Defining bayesian model initialisation parameters
     const_bnn_prior_parameters = {
         "prior_mu": 0.0,
         "prior_sigma": 1.0,
@@ -153,6 +146,7 @@ if __name__ == "__main__":
         "moped_delta": 0.1,
     }
 
+    #Defining optimiser and scheduler parameres
     optimizer_params = {
         "image_model": {"lr": 1e-5},
         "bathy_model": {"lr": 0.01},
@@ -167,6 +161,7 @@ if __name__ == "__main__":
         "multimodal_model": {"step_size": 7, "gamma": 0.752}
     }
 
+    #DEfining train parameters (note a lot of redundent in this)
     training_params = {
         "num_epochs_unimodal": 1,
         "num_epochs_multimodal": args.epochs_multimodal,
@@ -179,6 +174,7 @@ if __name__ == "__main__":
         "batch_size_multimodal": args.batch_size_multimodal
     }
 
+    #Call the main
     main(
         const_bnn_prior_parameters,
         optimizer_params,

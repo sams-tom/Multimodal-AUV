@@ -1,40 +1,29 @@
 import os
 import csv
 import shutil
-from PIL import Image # Required for image manipulation and saving (e.g., .png files)
-import numpy as np # Used for array operations, particularly with image data
-import pandas as pd # For DataFrame operations, specifically in filter_csv_by_image_names
-import argparse # For parsing command-line arguments
+from PIL import Image 
+import numpy as np 
+import pandas as pd 
+import argparse 
 import sys
-import subprocess # NEW: For calling external commands
-
-# --- NEW IMPORTS FOR OPTICAL IMAGE PRE-PROCESSING ---
+import subprocess
 import glob
 import skimage
-from skimage import io, exposure # Added exposure for CLAHE/rescale_intensity
-from scipy import ndimage # Not explicitly used in the final version of your snippet, but good to keep if needed
-import matplotlib.pyplot as plt # Not strictly needed for final output, but useful for debugging
-# import exiftool # REMOVED: No longer importing the exiftool Python library
+from skimage import io, exposure 
+from scipy import ndimage 
+import matplotlib.pyplot as plt 
 import re
 import platform
-# --- END NEW IMPORTS ---
 import json
 import pyproj
 import utm
-# Import functions from your custom data_pipeline modules.
-# These modules are assumed to be located in a 'data_pipeline/' directory
+
+#Import module specific functions
 from Multimodal_AUV.data_preparation.utilities import is_geotiff, filter_csv_by_image_names, update_csv_path
 from Multimodal_AUV.data_preparation.geospatial import get_pixel_resolution, extract_grid_patch
 from Multimodal_AUV.data_preparation.image_processing import process_frame_channels_in_subfolders
 
 
-# Optional imports for other functions that are commented out in the main block.
-# Uncomment them if you intend to use these functions later.
-# from data_pipeline.image_processing import process_images, save_data_as_image, process_main_directory
-
-
-# Redundant imports in the second block were removed to avoid confusion.
-# The first set of imports at the top covers all needs.
 
 def preprocess_optical_images(raw_images_path: str, processed_images_save_folder: str,
                               exiftool_executable_path: str, image_enhancement_method: str = 'AverageSubtraction') -> pd.DataFrame:
@@ -123,10 +112,12 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
         print("No files found, skipping image dimension determination.")
         return pd.DataFrame()
 
+    #Set the number of files and initialise an empty array of the image dimensions
     N = len(files)
     arr = np.zeros((h, w, d), float)
     print(f"Initialized average image array of shape {arr.shape} for AverageSubtraction.")
 
+    #Go through each folder and get the average image intensity
     folder_average_images = {} # To store average image for each folder
     if image_enhancement_method == "AverageSubtraction":
         print("Calculating folder-specific average images for AverageSubtraction...")
@@ -145,7 +136,8 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
             # Initialize average array for the current folder
             folder_arr = np.zeros((h, w, d), float)
             processed_for_avg_count = 0
-            
+
+            #Open the image, store its values in the array
             for im_file in folder_files:
                 try:
                     with Image.open(im_file).convert('RGB') as img_pil:
@@ -157,12 +149,12 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
                         print(f"Warning: Image '{im_file}' has inconsistent dimensions ({imarr.shape[:2]} vs expected {h, w}). Skipping for average calculation in its folder.")
                 except Exception as e:
                     print(f"Warning: Could not read image '{im_file}' for average calculation: {e}. Skipping this image.")
-            
+            #Then divide by this 
             if processed_for_avg_count > 0:
                 folder_average_images[folder_path] = folder_arr / processed_for_avg_count
                 print(f"Successfully processed {processed_for_avg_count} images for average calculation in folder '{folder_path}'.")
                 
-                # Optionally save the folder-specific average image
+                # Save the folder-specific average image
                 avg_image_uint8 = np.array(np.round(folder_average_images[folder_path]), dtype=np.uint8)
                 average_image_path = os.path.join(processed_images_save_folder, os.path.basename(folder_path) + "_Average.png")
                 try:
@@ -180,11 +172,7 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
     df = pd.DataFrame(columns=['Image_Name', 'path', 'easting', 'northing', 'altitude', 'depth', 'heading', 'lat', 'lon', 'pitch', 'roll', 'surge', 'sway', 'label'])
     print(f"Initialized metadata DataFrame with columns: {df.columns.tolist()}")
 
-    # Set the ExifTool path (adjusted for Linux/Windows)
-    if sys.platform.startswith('win'):
-        exiftool_bin_name = "exiftool.exe"
-    else: # Linux, macOS, etc.
-        exiftool_bin_name = "exiftool"
+    
 
     # Construct the full path to the exiftool executable
     if platform.system() == "Windows":
@@ -205,7 +193,8 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
 
     print(f"Extracting metadata using ExifTool for {len(files)} files...")
     all_raw_metadata = []
-    # --- MODIFIED SECTION: Calling ExifTool directly via subprocess ---
+
+    #Try to get the metadata using exiftool in cmd line structure
     try:
         command = [exiftool_command_name, '-G0', '-j', '-File:Comment']
         command.extend(files)
@@ -214,10 +203,12 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
 
         all_raw_metadata = json.loads(process.stdout)
 
+        #Get the number of metadata found
         print(f"ExifTool returned {len(all_raw_metadata)} metadata entries.")
         if len(all_raw_metadata) != len(files):
             print(f"Warning: Number of metadata entries ({len(all_raw_metadata)}) does not match number of files ({len(files)}). Some files may have failed metadata extraction.")
 
+    #Error handling
     except FileNotFoundError:
         # This occurs if the exiftool_command_name (e.g., "exiftool.exe" or "exiftool")
         # is not found in the system's PATH.
@@ -241,13 +232,12 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
     except Exception as e:
         print(f"An unexpected error occurred during ExifTool execution: {e}")
         sys.exit(1)
-    # --- END MODIFIED SECTION ---
+   
 
     # Filter for successful extractions and align with `files` list
     processed_files_with_metadata = []
     metadata_dicts = []
     for i, file_path in enumerate(files):
-        # Find the corresponding metadata entry based on SourceFile
         found_meta = None
         for meta_entry in all_raw_metadata:
             # ExifTool's JSON output for 'SourceFile' typically matches the input path directly.
@@ -279,7 +269,7 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
         # Initialize variables with default NaN/empty string
         altitude, depth, heading, latCor, lonCor, pitch, roll, surge, sway = [np.nan] * 9
 
-        # --- Reverted to your precise metadata extraction logic ---
+        #Extract the metadata
         comment = current_metadata.get('File:Comment', '')
         if comment:
             try:
@@ -327,17 +317,17 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
                     lonCor = signlon * (float(lon_str[:3]) + float(lon_str[3:lenlon-1])/60.0) # Corrected slice: lenlon-1 to exclude last char (E/W)
 
                     
-                    # --- NEW: Convert Lat/Lon to UTM Easting/Northing here ---
+                    # Convert Lat/Lon to UTM Easting/Northing here 
                     if pd.notna(latCor) and pd.notna(lonCor):
                         try:
                             # Auto-determine UTM zone
                             utm_zone = int(np.floor((lonCor + 180) / 6) + 1)
                             is_northern = (latCor >= 0)
 
-                            # Define the UTM projector
-                            # For UK, often UTM Zone 30N or 31N, but dynamic calculation is safer
+                            # Define the UTM projector from the utm above 
                             utm_proj = pyproj.Proj(proj='utm', zone=utm_zone, ellps='WGS84', north=is_northern)
                             
+                            #Calculate the utm
                             easting_utm, northing_utm = utm_proj(lonCor, latCor)
                             print(f"Converted to UTM: Easting={easting_utm}, Northing={northing_utm}, UTM Zone={utm_zone}{'N' if is_northern else 'S'}")
                         except Exception as utm_e:
@@ -345,8 +335,8 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
                             easting_utm, northing_utm = np.nan, np.nan
                     else:
                         print(f"Lat/Lon are NaN for '{image_basename}', skipping UTM conversion.")
-                    # --- END NEW UTM CONVERSION ---
 
+            #Error handling
             except AttributeError as ae:
                 print(f"Error: A required metadata tag was not found in 'File:Comment' for '{image_basename}'. Check regex patterns. Error: {ae}")
                 # Set coordinates to NaN if parsing failed for them
@@ -375,6 +365,7 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
                 current_folder_path = os.path.dirname(file_path)
                 folder_avg_img = folder_average_images.get(current_folder_path)
 
+                #Save the corrected image
                 if folder_avg_img is not None and folder_avg_img.shape == im1.shape:
                     imcor = im1 - folder_avg_img
                     out2 = skimage.exposure.rescale_intensity(imcor, out_range='uint8')
@@ -418,7 +409,8 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
         except Exception as e:
             print(f"Error applying enhancement or saving image '{image_basename}': {e}. Skipping image processing for this file.")
             save_image_path = file_path # Fallback: use original path if processing fails
-        # Prepare data for DataFrame row
+
+        # Prepare data for DataFrame row nice and clean
         row_data = {
             'Image_Name': image_basename,
             'path': save_image_path,
@@ -435,11 +427,11 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
             'sway': str(sway) if pd.notna(sway) else '',
             'label': "unlabelled" # Default label
         }
-        for k, v in row_data.items():
-            print(f"  {k}: {v}")
-
+       
+        #Create a df of this 
         df = pd.concat([df, pd.DataFrame([row_data])], ignore_index=True)
 
+    #And save and return this df
     output_csv_path = os.path.join(processed_images_save_folder, 'coords.csv')
     try:
         df.to_csv(output_csv_path, index=False)
@@ -447,7 +439,10 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
     except Exception as e:
         print(f"Error saving metadata CSV to '{output_csv_path}': {e}")
     print("--- Optical image pre-processing completed. ---")
+
     return df
+
+
 def process_and_save_data(csv_file_path: str, geotiff_files_paths: list[str],
                           output_root_folder: str, window_size_meters: float,
                           original_images_folder: str):
@@ -488,7 +483,7 @@ def process_and_save_data(csv_file_path: str, geotiff_files_paths: list[str],
                                       direct copying, this parameter serves as general
                                       context or for path validation/correction.
     """
-    # Ensprint(f"\n--- Starting data processing for classification ---")
+    #Print some parameters
     print(f"CSV file: '{csv_file_path}'")
     print(f"Original images folder: '{original_images_folder}'")
     print(f"GeoTIFF files: {geotiff_files_paths}")
@@ -518,14 +513,6 @@ def process_and_save_data(csv_file_path: str, geotiff_files_paths: list[str],
         print(f"\n--- Attempting to process entry {row_idx+1} for image: '{image_name_original}' ---")
 
         try:
-            # NO LONGER NEED EASTING, NORTHING, OR UTM CONVERSION HERE
-            # The 'extract_grid_patch' function will now need to either accept
-            # lat/lon directly and do its own internal projection, or you'll
-            # need to ensure your GeoTIFFs are in lat/lon or are georeferenced
-            # in a way that doesn't rely on UTM easting/northing from the CSV.
-            # For now, I'm removing the dependency on these, assuming extract_grid_patch
-            # will be updated or can handle lat/lon directly if needed.
-
             # Retrieve original image path, potentially correcting it if only basename is in CSV
             original_image_filename_from_csv = row.get('Image_Name')
             original_image_full_path = row.get('path')
@@ -589,13 +576,7 @@ def process_and_save_data(csv_file_path: str, geotiff_files_paths: list[str],
                 print(f"Error saving label file for '{image_name_original}': {e}")
 
             # Process each GeoTIFF file: extract a grid patch and save it
-            # NOTE: The 'extract_grid_patch' function will need to be updated
-            # to no longer rely on 'easting' and 'northing' being passed directly.
-            # It should either accept 'easting' and 'northing' from the 'row' dictionary,
-            # or you will need a different strategy for positioning the patch.
-            # For now, I'm passing the 'row' directly and assume extract_grid_patch
-            # will handle coordinate extraction internally from the row.
-            
+
             # Extract easting and northing from the row for extract_grid_patch if needed
             easting_from_row = row.get('easting')
             northing_from_row = row.get('northing')
@@ -717,17 +698,17 @@ if __name__ == "__main__":
     # --- Step 1: Pre-process Optical Images and Generate Metadata CSV ---
     print("\n--- Step 1: Pre-processing optical images and generating metadata CSV ---")
     # The processed images and their metadata CSV will be saved into the main output_folder
-    ### The 'path' column in the generated CSV will point to these processed images.
-    #processed_metadata_df = preprocess_optical_images(
-    #    raw_images_path=args.raw_optical_images_folder,
-    #    processed_images_save_folder=args.output_folder, # Use main output folder for processed images
-    #    exiftool_executable_path=args.exiftool_path,
-    #    image_enhancement_method=args.image_enhancement_method
-    #)
+    ## The 'path' column in the generated CSV will point to these processed images.
+    processed_metadata_df = preprocess_optical_images(
+        raw_images_path=args.raw_optical_images_folder,
+        processed_images_save_folder=args.output_folder, # Use main output folder for processed images
+        exiftool_executable_path=args.exiftool_path,
+        image_enhancement_method=args.image_enhancement_method
+    )
 
-    #if processed_metadata_df.empty:
-    #    print("Optical image pre-processing resulted in no valid metadata. Exiting.")
-    #    sys.exit(1)
+    if processed_metadata_df.empty:
+        print("Optical image pre-processing resulted in no valid metadata. Exiting.")
+        sys.exit(1)
 
     # Set the CSV path for the subsequent steps to the newly generated one
     generated_csv_path = os.path.join(args.output_folder, 'coords.csv')
