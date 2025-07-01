@@ -89,7 +89,97 @@ And to train unimodal and multimodal models to compare the beneft of multimodali
 4. Prepare Data Folders (Think about what it needs to be and clarify this)
    
 # Usage examples
-1.Run the End-to-End Data Preparation Pipeline
+## 1.Run the End-to-End Data Preparation Pipeline
+To preprocess your AUV sonar and optical image data, execute the following command from your terminal:
+
+```bash
+python your_script_name.py \
+    --raw_optical_images_folder "/path/to/your/raw_auv_images" \
+    --geotiff_folder "/path/to/your/auv_geotiffs" \
+    --output_folder "/path/to/your/processed_auv_data" \
+    --exiftool_path "C:/exiftool/" \
+    --window_size_meters 30.0 \
+    --image_enhancement_method "AverageSubtraction"
+
+Understanding the Arguments:
+python your_script_name.py: This invokes the main preprocessing script. Replace your_script_name.py with the actual name of your Python file (e.g., preprocess_auv_data.py).
+
+--raw_optical_images_folder "/path/to/your/raw/optical_images"
+
+Purpose: Specifies the absolute path to the directory containing your original, unprocessed JPG optical image files from the AUV.
+
+Action Required: You MUST replace /path/to/your/raw/optical_images with the actual, full path to your raw optical images folder on your local machine.
+
+Example Structure:
+
+/path/to/your/raw/optical_images/
+├── IMG_0001.JPG
+├── IMG_0002.JPG
+└── ...
+--geotiff_folder "/path/to/your/auv_geotiffs"
+
+Purpose: Defines the absolute path to the directory containing all your GeoTIFF files, which typically include bathymetry and side-scan sonar data.
+
+Action Required: You MUST replace /path/to/your/auv_geotiffs with the actual, full path to your GeoTIFFs folder.
+
+Example Structure:
+
+/path/to/your/auv_geotiffs/
+├── bathymetry.tif
+├── side_scan.tif
+└── ...
+--output_folder "/path/to/your/processed_auv_data"
+
+Purpose: Designates the root directory where all the processed and organized output data will be saved. This is where the processed optical images, sonar patches, and the main coords.csv file will reside.
+
+Action Required: You MUST replace /path/to/your/processed_auv_data with your desired output directory.
+
+--exiftool_path "C:/exiftool/"
+
+Purpose: Provides the absolute path to the directory where the exiftool.exe executable is located. This is essential for extracting GPS and timestamp information from your optical images.
+
+Action Required: You MUST replace "C:/exiftool/" with the correct path to your ExifTool installation. For Linux/macOS, this might be /usr/bin/ or /usr/local/bin/ if installed globally.
+
+--window_size_meters 30.0
+
+Purpose: Sets the desired side length (in meters) for the square patches that will be extracted from your GeoTIFF files (e.g., a 30.0 value means a 30m x 30m sonar patch).
+
+Customization: Adjust this value based on the scale of features you want to capture in your sonar data for machine learning and the typical coverage of your optical images.
+
+--image_enhancement_method "CLAHE"
+
+Purpose: Specifies the method to be used for enhancing the optical images. This can improve the visual quality and potentially the feature extraction for machine learning.
+
+Customization: Choose between "AverageSubtraction" (a simpler method) or "CLAHE" (Contrast Limited Adaptive Histogram Equalization, often more effective for underwater images). The default is AverageSubtraction.
+
+--skip_bathy_combine (Optional flag)
+
+Purpose: If this flag is present, the post-processing step that attempts to combine multiple bathymetry channels into a single representation will be skipped.
+
+Usage: Include this flag in your command if you do not want this channel combination to occur. For example: python your_script_name.py ... --skip_bathy_combine (no value needed, just the flag).
+
+Output Data Structure
+Upon successful execution, your --output_folder will contain a structured dataset. Here's an example of the typical output:
+
+/path/to/your/processed_auv_data/
+├── coords.csv
+├── image_0001/
+│   ├── image_0001_processed.jpg  # Enhanced optical image
+│   ├── bathymetry_patch.tif      # Extracted bathymetry patch
+│   ├── side_scan_patch.tif       # Extracted side-scan sonar patch
+│   └── (other_geotiff_name)_patch.tif
+├── image_0002/
+│   ├── image_0002_processed.jpg
+│   ├── bathymetry_patch.tif
+│   └── ...
+└── ...
+coords.csv: A primary metadata file containing entries for each processed optical image, including its filename, geographical coordinates (latitude, longitude), timestamp, and the relative path to its corresponding processed image and sonar patches within the output structure.
+
+image_XXXX/ subfolders: Each subfolder is named after the processed optical image and contains:
+
+The processed optical image itself.
+
+GeoTIFF patches: Individual GeoTIFF files representing the extracted square patches from each of your input GeoTIFFs (e.g., bathymetry, side-scan sonar) for that specific location.
 ## 2.Predict Benthic Habitat Class using a Pre-trained Model
 Once you have your environment set up and data prepared, you can run inference using our pre-trained Multimodal AUV Bayesian Neural Network. This example demonstrates how to apply the model to new data and generate predictions with uncertainty quantification.
 
