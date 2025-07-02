@@ -6,8 +6,8 @@ from typing import Dict, Any, List
 import sys
 from torch.utils.tensorboard import SummaryWriter
 import datetime
-from Multimodal_AUV.Examples.Example_Inference_model import prepare_inference_dataloader
-from Multimodal_AUV.inference.predictors import multimodal_predict_and_save , load_and_prepare_multimodal_model
+from Multimodal_AUV.Examples.Example_Inference_model import prepare_inference_dataloader, load_and_prepare_multimodal_model
+from Multimodal_AUV.inference.predictors import multimodal_predict_and_save 
 from Multimodal_AUV.data.loaders import prepare_datasets_and_loaders
 from Multimodal_AUV.models.model_utils import define_models
 from Multimodal_AUV.Examples.Example_Retraining_model import load_and_prepare_multimodal_model_custom
@@ -68,7 +68,6 @@ def run_auv_inference(
 
 
 def run_auv_training(
-    multimodal_model_weights_path: str,
     optimizer_params: Dict[str, Dict[str, Any]],
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
@@ -130,20 +129,16 @@ def run_auv_training(
     logger.info(f"Number of classes (used for model): {num_classes}")
     logger.info(f"Multimodal: {multimodal_train_loader.dataset_size} training samples, {multimodal_test_loader.dataset_size} test samples")
 
-    # --- Step 1: Load your custom MultimodalModel with its existing weights using YOUR function ---
-    logger.info(f"Loading custom Multimodal Model from {multimodal_model_weights_path} using your provided 'load_and_prepare_multimodal_model_custom' function...")
-    try:
-        # Load the multimodal model from hugging face
-        multimodal_model_instance = load_and_prepare_multimodal_model_custom(
-            multimodal_model_weights_path,
-            devices[0], # Use the first device as the primary for model loading/training
-            num_classes=num_classes
+    multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
+    multimodal_model_hf_subfolder = "multimodal-bnn"
+    model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin")
+
+    logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}/{model_weights_filename}'...")
+    downloaded_model_weights_path = hf_hub_download(
+            repo_id=multimodal_model_hf_repo_id,
+            filename=model_weights_filename,
         )
-        logger.info("Custom Multimodal Model loaded successfully with its weights.")
-    except Exception as e:
-        logger.critical(f"FATAL ERROR: Could not load custom Multimodal Model from {multimodal_model_weights_path}. Cannot proceed with training. Error: {e}")
-        # Raise the exception to be caught by the calling cli_train_main or other callers
-        raise
+    logging.info(f"Multimodal model weights downloaded to: {downloaded_model_weights_path}")
 
     # 2. Define optimiser and schedulers
     # Defining the models so the optimisers know what to do
@@ -152,7 +147,6 @@ def run_auv_training(
     # passed directly. Ensure `define_models` provides other models if they are needed elsewhere in your training logic.
     models_dict = define_models(device=devices[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
     # Add the loaded multimodal_model_instance to the dictionary for consistent handling if needed later
-    models_dict['multimodal_model'] = multimodal_model_instance
     models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models moved to devices.")
     torch.cuda.empty_cache()
@@ -290,8 +284,9 @@ def run_AUV_training_from_scratch(
     scheduler_params: Dict[str, Dict[str, Any]],
     training_params: Dict[str, Any],
     root_dir: str,
-    devices: List[torch.device] # Corrected type hint to List[torch.device]
-):
+    devices: List[torch.device], # Corrected type hint to List[torch.device]
+    num_classes: int # Added num_classes to the function signature
+) -> bool: # Added return type hint for success
     """
     Orchestrates the full multimodal AUV model training pipeline.
 
@@ -302,113 +297,130 @@ def run_AUV_training_from_scratch(
         training_params (Dict[str, Any]): General training parameters (epochs, batch sizes, patch types, etc.).
         root_dir (str): Root directory for datasets and outputs.
         devices (List[torch.device]): List of PyTorch devices to use for training (e.g., [torch.device("cuda:0")]).
+        num_classes (int): The number of classes for the classification task.
+    
+    Returns:
+        bool: True if training completes successfully, False otherwise.
     """
-    # Get the root logger and configure it for this run
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    try:
+        # Get the root logger and configure it for this run
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
 
-    # Clear any existing handlers to prevent duplicate logs if run multiple times
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+        # Clear any existing handlers to prevent duplicate logs if run multiple times
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
 
-    # Setup file logging
-    log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-    os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "training.log")
+        # Setup file logging
+        log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, "training.log")
 
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
-    file_handler.setFormatter(file_formatter)
-    root_logger.addHandler(file_handler)
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+        file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(file_handler)
 
-    # Setup console logging
-    console_handler = logging.StreamHandler(sys.stdout) # Explicitly use sys.stdout
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(console_formatter)
-    root_logger.addHandler(console_handler)
+        # Setup console logging
+        console_handler = logging.StreamHandler(sys.stdout) # Explicitly use sys.stdout
+        console_handler.setLevel(logging.INFO)
+        console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(console_formatter)
+        root_logger.addHandler(console_handler)
 
-    # Initialize TensorBoard writer
-    tb_log_dir = os.path.join("tensorboard_logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-    sum_writer = SummaryWriter(log_dir=tb_log_dir)
-    sum_writer.add_text("Init", "TensorBoard logging started", 0)
+        # Initialize TensorBoard writer
+        tb_log_dir = os.path.join("tensorboard_logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+        sum_writer = SummaryWriter(log_dir=tb_log_dir)
+        sum_writer.add_text("Init", "TensorBoard logging started", 0)
 
-    logging.info("Logging initialized.")
+        logging.info("Logging initialized.")
 
-    # Determine primary device (first in the list, or CPU if list is empty/invalid)
-    if not devices:
-        primary_device = torch.device("cpu")
-        logging.warning("No devices provided or detected. Defaulting to CPU.")
-    else:
-        primary_device = devices[0]
+        # Determine primary device (first in the list, or CPU if list is empty/invalid)
+        if not devices:
+            primary_device = torch.device("cpu")
+            logging.warning("No devices provided or detected. Defaulting to CPU.")
+        else:
+            primary_device = devices[0]
 
-    # 1. Environment and Device Setup
-    logging.info("Setting up environment and devices...")
-    logging.info(f"Using primary device: {str(primary_device)}")
-    if len(devices) > 1:
-        logging.info(f"Additional devices available: {[str(d) for d in devices[1:]]}")
+        # 1. Environment and Device Setup
+        logging.info("Setting up environment and devices...")
+        logging.info(f"Using primary device: {str(primary_device)}")
+        if len(devices) > 1:
+            logging.info(f"Additional devices available: {[str(d) for d in devices[1:]]}")
 
-    # 2. Dataset and DataLoader Preparation
-    logging.info("Preparing datasets and data loaders...")
-    # NOTE: The actual num_classes should be derived from the dataset if possible,
-    # or passed as an argument to the main function if fixed.
-    # Here, we use the one returned by prepare_datasets_and_loaders.
-    _, _, multimodal_train_loader, multimodal_test_loader, num_classes, _ = prepare_datasets_and_loaders(
-        root_dir,
-        batch_size_unimodal=training_params["batch_size_unimodal"],
-        batch_size_multimodal=training_params["batch_size_multimodal"]
-    )
-    logging.info(f"Number of classes derived from data: {num_classes}")
+        # 2. Dataset and DataLoader Preparation
+        logging.info("Preparing datasets and data loaders...")
+        # NOTE: The actual num_classes should be derived from the dataset if possible,
+        # or passed as an argument to the main function if fixed.
+        # Here, we use the one returned by prepare_datasets_and_loaders but also check against the passed `num_classes`.
+        _, _, multimodal_train_loader, multimodal_test_loader, actual_num_classes, _ = prepare_datasets_and_loaders(
+            root_dir,
+            batch_size_unimodal=training_params["batch_size_unimodal"],
+            batch_size_multimodal=training_params["batch_size_multimodal"]
+        )
 
-    # 3. Model Definition and Initialization
-    logging.info("Defining models...")
-    models_dict = define_models(device=primary_device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
+        # Harmonize num_classes: prioritize the one from arguments if available, otherwise use detected
+        if num_classes is None or num_classes == 0: # If num_classes not provided or invalid
+            num_classes = actual_num_classes
+            logging.info(f"Using num_classes ({num_classes}) derived from dataset.")
+        elif num_classes != actual_num_classes:
+            logging.warning(f"Configured num_classes ({num_classes}) differs from detected num_classes ({actual_num_classes}) from dataset. Using configured.")
+            # Decide which to use, for training from scratch, it might be better to stick to configured
+            # For retraining, usually dataset detected is preferred. Let's stick with provided for from_scratch.
+            # If you want to use actual_num_classes here, uncomment: num_classes = actual_num_classes
+        
+        logging.info(f"Number of classes (used for model): {num_classes}")
 
-    # Move models to appropriate devices (if DataParallel/Distributed used)
-    # The `move_models_to_device` function should handle distributing models
-    # across `devices` list if `use_multigpu_for_multimodal=True`.
-    models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
-    logging.info("Models defined and moved to devices.")
-    torch.cuda.empty_cache()
+        # 3. Model Definition and Initialization
+        logging.info("Defining models...")
+        models_dict = define_models(device=primary_device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
 
-    # 4. Optimizers and Schedulers
-    logging.info("Setting up criterion, optimizers and schedulers...")
-    criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
+        # Move models to appropriate devices (if DataParallel/Distributed used)
+        models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
+        logging.info("Models defined and moved to devices.")
+        torch.cuda.empty_cache()
 
-    # 5. Run Base Multimodal Training
-    logging.info("Starting base multimodal training...")
-    print("Starting base multimodal training...") # Use print for immediate visibility
+        # 4. Optimizers and Schedulers
+        logging.info("Setting up criterion, optimizers and schedulers...")
+        criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
 
-    # Ensure the 'multimodal_model' key exists in optimizers and schedulers
-    # This check prevents KeyError if your define_optimizers_and_schedulers doesn't
-    # populate all expected keys for multimodal_model.
-    if "multimodal_model" not in optimizers:
-        raise ValueError("Optimizer for 'multimodal_model' not found in optimizers dictionary.")
-    if "multimodal_model" not in schedulers:
-        raise ValueError("Scheduler for 'multimodal_model' not found in schedulers dictionary.")
-    if "multimodal_model" not in models_dict:
-        raise ValueError("Multimodal model instance not found in models_dict.")
+        # 5. Run Base Multimodal Training
+        logging.info("Starting base multimodal training...")
+        print("Starting base multimodal training...") # Use print for immediate visibility
+
+        # Ensure the 'multimodal_model' key exists in optimizers and schedulers
+        if "multimodal_model" not in optimizers:
+            raise ValueError("Optimizer for 'multimodal_model' not found in optimizers dictionary.")
+        if "multimodal_model" not in schedulers:
+            raise ValueError("Scheduler for 'multimodal_model' not found in schedulers dictionary.")
+        if "multimodal_model" not in models_dict:
+            raise ValueError("Multimodal model instance not found in models_dict.")
 
 
-    train_and_evaluate_multimodal_model(
-        train_loader=multimodal_train_loader,
-        test_loader=multimodal_test_loader,
-        multimodal_model=models_dict["multimodal_model"],
-        criterion=criterion,
-        optimizer=optimizers["multimodal_model"],
-        lr_scheduler=schedulers["multimodal_model"],
-        num_epochs=training_params["num_epochs_multimodal"],
-        device=primary_device, # Pass the primary device for training loop management
-        model_type="multimodal",
-        bathy_patch_type=training_params["bathy_patch_base"],
-        sss_patch_type=training_params["sss_patch_base"],
-        csv_path=os.path.join(root_dir, "csvs"), # Ensure this path is correctly formed
-        num_mc=training_params["num_mc"],
-        sum_writer=sum_writer
-    )
-    logging.info("Base multimodal training complete.")
+        train_and_evaluate_multimodal_model(
+            train_loader=multimodal_train_loader,
+            test_loader=multimodal_test_loader,
+            multimodal_model=models_dict["multimodal_model"],
+            criterion=criterion,
+            optimizer=optimizers["multimodal_model"],
+            lr_scheduler=schedulers["multimodal_model"],
+            num_epochs=training_params["num_epochs_multimodal"],
+            device=primary_device, # Pass the primary device for training loop management
+            model_type="multimodal",
+            bathy_patch_type=training_params["bathy_patch_base"],
+            sss_patch_type=training_params["sss_patch_base"],
+            csv_path=os.path.join(root_dir, "csvs"), # Ensure this path is correctly formed
+            num_mc=training_params["num_mc"],
+            sum_writer=sum_writer
+        )
+        logging.info("Base multimodal training complete.")
 
-    sum_writer.close()
-    logging.info("TensorBoard writer closed.")
-    logging.info("Full training pipeline finished.")
+        sum_writer.close()
+        logging.info("TensorBoard writer closed.")
+        logging.info("Full training pipeline finished.")
+        return True
+    except Exception as e:
+        logging.exception(f"An error occurred during AUV training from scratch: {e}")
+        sum_writer.close()
+        return False

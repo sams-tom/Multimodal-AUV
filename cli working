@@ -1,0 +1,10 @@
+multimodal-auv-data-prep --raw_optical_images_folder "/home/tommorgan/Documents/data/Newfolder/" --geotiff_folder "/home/tommorgan/Documents/data/Newfolder/sonar/" --output_folder "/home/tommorgan/Documents/data/test/" --window_size_meters 30 --image_enhancement_method "AverageSubtraction"  --exiftool_path '/usr/bin/exiftool'
+
+
+multimodal-auv-inference --data_dir "/home/tommorgan/Documents/data/all_mulroy_images_and_sonar" --output_csv "/home/tommorgan/Documents/data/test/csv.csv" --batch_size 4 --num_mc_samples 10
+
+multimodal-auv-retrain --data_dir "home/tommorgan/Documents/data/representative_sediment_sample/" --batch_size_multimodal 4 --num_epochs_multimodal 5 --num_mc_samples 5 --learning_rate_multimodal 1e-5 --weight_decay_multimodal 1e-5 --bathy_patch_base 30 --sss_patch_base 30
+
+
+multimodal-auv-train-scratch --root_dir "home/tommorgan/Documents/data/representative_sediment_sample/" --batch_size_multimodal 4 --epochs_multimodal 5 --num_mc 5 --lr_multimodal 1e-5 
+
