@@ -159,7 +159,7 @@ Multimodal_AUV/
 * ```data/individual_data_point/local_side_scan_image.jpg```: The individual side scan image local to the camera image for prediction
 * ```data/individual_data_point/local_bathy_image.jpg```: The individual bathymetric image local to the camera image for prediction
 * ```data/individual_data_point/LABEL.txt```: The label to predict. **N.B.** Not required if youre not training/retraining a model.
-##NOTE : Sidescna files must have SSS in name and bathymetric files must be called "patch_30m_combined_bathy"
+## NOTE : Sidescna files must have SSS in name and bathymetric files must be called "patch_30m_combined_bathy"
 ## Example root directory
 ![image](https://github.com/user-attachments/assets/e2e3c0be-e38e-41c5-b21b-affc50149cdc)
 
