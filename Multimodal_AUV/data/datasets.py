@@ -1,4 +1,4 @@
-#For file and path handling:
+﻿#For file and path handling:
 import os
 import glob
 #For image processing
@@ -21,6 +21,37 @@ import re
 import logging
 
 class CustomImageDataset_1(Dataset):
+    """
+    A PyTorch Dataset for loading multimodal AUV image data, including
+    optical (main), bathymetry, and side-scan sonar (SSS) images.
+
+    The dataset expects a root directory where each subfolder represents a
+    single data sample containing the three image types.
+
+    Folder Structure Expected:
+    root_dir/
+    ├── folder_A/
+    │   ├── Frame_XXXX.jpg  (Main optical image)
+    │   ├── SSS_YYYY.png    (Side-scan sonar image)
+    │   ├── patch_30m_combined_bathy.png (or combined_bathy.jpg) (Bathymetry image)
+    │   └── ...
+    ├── folder_B/
+    │   ├── Frame_ZZZZ.jpg
+    │   ├── SSS_WWWW.png
+    │   ├── combined_bathy.jpg
+    │   └── ...
+    ...
+
+    Initialization: Scans `root_dir` during __init__ to collect valid data paths.
+    Invalid samples (missing images, empty images, or specific bathy placeholder)
+    are skipped.
+
+    Returns (via __getitem__): A tuple containing:
+    - main_image (torch.Tensor): Processed RGB optical image (normalized).
+    - bathy_image (torch.Tensor): Processed grayscale bathymetry image.
+    - sss_image (torch.Tensor): Processed grayscale side-scan sonar image.
+    - image_name (str): Basename of the main optical image file (e.g., "Frame_XXXX.jpg").
+    """
     def __init__(self, root_dir, transform=None):
         self.root_dir = root_dir
         self.data = []
@@ -112,9 +143,9 @@ class CustomImageDataset_1(Dataset):
                         max_nonzero = nonzero_count
                         selected_sss = image_path
             except Exception as e:
-                print(f"Error loading SSS image {image_path}: {e}")
+                print(f"Error loading SSS image {image_path}: {e}, sidescan images must have SSS in name")
         if selected_sss is None:
-            print(f"No valid SSS image found in {folder_path}")
+            print(f"No valid SSS image found in {folder_path}, sidescan images must have SSS in name")
         return selected_sss
 
     def _find_bathy_image(self, folder_path):
@@ -125,7 +156,7 @@ class CustomImageDataset_1(Dataset):
         elif os.path.exists(path2):
             return path2
         else:
-            print(f"Missing bathy data in {folder_path}. Will load empty if accessed.")
+            print(f"Missing bathy data in {folder_path}. Will load empty if accessed. Note bathymertic images must be named either patch_30m_combined_bathy.png or combined_bathy.jpg")
             return "empty_image.png"
 
     def __len__(self):
@@ -169,6 +200,37 @@ class CustomImageDataset_1(Dataset):
         )
 
 class CustomImageDataset(Dataset):
+    """
+    A PyTorch Dataset for loading multimodal AUV image data, including
+    optical (main), bathymetry, and side-scan sonar (SSS) images.
+
+    The dataset expects a root directory where each subfolder represents a
+    single data sample containing the three image types.
+
+    Folder Structure Expected:
+    root_dir/
+    ├── folder_A/
+    │   ├── Frame_XXXX.jpg  (Main optical image)
+    │   ├── SSS_YYYY.png    (Side-scan sonar image)
+    │   ├── patch_30m_combined_bathy.png (or combined_bathy.jpg) (Bathymetry image)
+    │   └── ...
+    ├── folder_B/
+    │   ├── Frame_ZZZZ.jpg
+    │   ├── SSS_WWWW.png
+    │   ├── combined_bathy.jpg
+    │   └── ...
+    ...
+
+    Initialization: Scans `root_dir` during __init__ to collect valid data paths.
+    Invalid samples (missing images, empty images, or specific bathy placeholder)
+    are skipped.
+
+    Returns (via __getitem__): A tuple containing:
+    - main_image (torch.Tensor): Processed RGB optical image (normalized).
+    - bathy_image (torch.Tensor): Processed grayscale bathymetry image.
+    - sss_image (torch.Tensor): Processed grayscale side-scan sonar image.
+    - image_name (str): Basename of the main optical image file (e.g., "Frame_XXXX.jpg").
+    """
     def __init__(self, root_dir, transform=None):
         self.root_dir = root_dir
         self.data_paths = [] # Renamed from 'data' to be more explicit about storing paths
@@ -206,7 +268,7 @@ class CustomImageDataset(Dataset):
                 if not sss_candidates: raise FileNotFoundError("SSS image not found")
                 sss_image = max(sss_candidates, key=lambda x: np.count_nonzero(np.array(Image.open(x).convert("L"))))
             except Exception as e:
-                logging.debug(f"Skipping folder {folder_path} due to missing main/SSS image: {e}")
+                logging.debug(f"Skipping folder {folder_path} due to missing main/SSS image: {e}. Note Sidescan images must have SSS in name.")
                 continue
 
             label = None
@@ -221,7 +283,7 @@ class CustomImageDataset(Dataset):
 
             bathy_image = os.path.join(folder_path, "combined_rgb_bathymetry.jpg")
             if not os.path.exists(bathy_image):
-                logging.debug(f"Skipping folder {folder_path} due to missing bathy image.")
+                logging.debug(f"Skipping folder {folder_path} due to missing bathy image. Note bathymetric images must be named combined_rgb_bathymetry.jpg")
                 continue
 
             patch_bathy_found = {}
