@@ -37,11 +37,24 @@ def run_auv_inference(
     logging.info(f"Using device: {device}")
 
     try:
+       
         multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
-        multimodal_model_hf_subfolder = "multimodal-bnn"
-        model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin")
+    
+        # --- CRITICAL FIX: Define the subfolder with forward slashes directly,
+        #                  or ensure any backslashes are replaced immediately. ---
+        # Option 1 (Most direct if you know it's always "multimodal-bnn"):
+        multimodal_model_hf_subfolder = "multimodal-bnn" 
+    
+        # Option 2 (More robust if 'multimodal_model_hf_subfolder' could come from a path operation elsewhere):
+        multimodal_model_hf_subfolder = multimodal_model_hf_subfolder.replace('\\', '/')
 
-        logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}/{model_weights_filename}'...")
+        # Now, construct the filename using the guaranteed-forward-slash subfolder
+        model_weights_filename = f"{multimodal_model_hf_subfolder}/pytorch_model.bin"
+
+        logging.info(f"DEBUG: repo_id being used: '{multimodal_model_hf_repo_id}'")
+        logging.info(f"DEBUG: filename being used: '{model_weights_filename}'") # This debug print will confirm the path
+        logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}' with filename '{model_weights_filename}'...")
+    
         downloaded_model_weights_path = hf_hub_download(
             repo_id=multimodal_model_hf_repo_id,
             filename=model_weights_filename,
@@ -66,22 +79,30 @@ def run_auv_inference(
         logging.critical(f"A critical error occurred during the inference process: {e}", exc_info=True)
         raise # Re-raise the exception for programmatic callers
 
-
-def run_auv_training(
-    optimizer_params: Dict[str, Dict[str, Any]],
-    scheduler_params: Dict[str, Dict[str, Any]],
-    training_params: Dict[str, Any],
+def run_auv_retraining(
     root_dir: str,
-    devices: List[torch.device], # Changed to List[torch.device]
-    const_bnn_prior_parameters: Dict[str, Any],
-    num_classes: int
+    devices: List[torch.device],
+    const_bnn_prior_parameters: Dict[str, Any], # Keep this passed in as requested
+    num_classes: int, # num_classes_for_training will be passed here
+
+    # Direct parameters for optimizer and training:
+    lr_multimodal: float = 1e-5,
+    multimodal_weight_decay: float = 1e-5,
+    epochs_multimodal: int = 20,
+    num_mc: int = 5,
+    bathy_patch_base: int = 30,
+    sss_patch_base: int = 30,
+    batch_size_multimodal: int = 1,
+
+    # NEW: Direct parameters for multimodal scheduler:
+    scheduler_multimodal_step_size: int = 7,
+    scheduler_multimodal_gamma: float = 0.752,
 ):
     """
-    Core function to run the multimodal AUV model training process.
+    Core function to run the multimodal AUV model retraining process.
     This function contains the main training orchestration logic.
     """
     # Setup logging and tensor board
-    # Clear existing handlers to prevent duplicate logs if called multiple times
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
@@ -106,58 +127,112 @@ def run_auv_training(
     sum_writer = SummaryWriter(log_dir=tb_log_dir)
     sum_writer.add_text("Init", "TensorBoard logging started", 0)
 
+    logger = logging.getLogger(__name__) # Re-initialize logger after handlers are set
+
     # Some preliminary information
     logger.info("Logging initialized.")
     logger.info(f"TensorBoard logs will be saved to: {tb_log_dir}")
     logger.info("Setting up environment and devices...")
     logger.info(f"Using devices: {[str(d) for d in devices]}")
 
+
+    # --- Define Dictionaries INSIDE the Function, using passed parameters ---
+    optimizer_params = {
+        "image_model": {"lr": 1e-5}, # Example fixed LR for unimodal (can make arg if needed)
+        "bathy_model": {"lr": 0.01}, # Example fixed LR for unimodal (can make arg if needed)
+        "sss_model": {"lr": 1e-5},    # Example fixed LR for unimodal (can make arg if needed)
+        "multimodal_model": {"lr": lr_multimodal, "weight_decay": multimodal_weight_decay} # Use passed values
+    }
+
+    scheduler_params = {
+        "image_model": {"step_size": 7, "gamma": 0.1},
+        "bathy_model": {"step_size": 5, "gamma": 0.5},
+        "sss_model": {"step_size": 7, "gamma": 0.7},
+        "multimodal_model": {
+            "step_size": scheduler_multimodal_step_size, # Use passed value
+            "gamma": scheduler_multimodal_gamma          # Use passed value
+        }
+    }
+
+    training_params = {
+        "num_epochs_unimodal": 1, # Fixed as per your example, can be made arg
+        "num_epochs_multimodal": epochs_multimodal, # Use passed value
+        "num_mc": num_mc, # Use passed value
+        "bathy_patch_base": f"patch_{bathy_patch_base}_bathy", # Use passed value
+        "sss_patch_base": f"patch_{sss_patch_base}_sss",      # Use passed value
+        "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"], # Fixed list
+        "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],   # Fixed list
+        "batch_size_unimodal" : 1, # Fixed, used by prepare_datasets_and_loaders
+        "batch_size_multimodal" : batch_size_multimodal # Use passed value
+    }
+    # --- End of Dictionary Definitions ---
+
+    #preparing dataset loaders
     logger.info("Preparing datasets and data loaders for training...")
 
-    # Define the multimodal loaders and get the number of classes. Note _ are unimodal and not needed
     _, _, multimodal_train_loader, multimodal_test_loader, actual_num_classes, _ = \
         prepare_datasets_and_loaders(
             root_dir=root_dir,
             batch_size_multimodal=training_params["batch_size_multimodal"],
-            batch_size_unimodal=1
+            batch_size_unimodal=training_params["batch_size_unimodal"]
         )
-    # If the num_classes derived from data is different from the argument, log a warning or error
     if num_classes != actual_num_classes:
         logger.warning(f"Configured num_classes ({num_classes}) differs from detected num_classes ({actual_num_classes}) from dataset. Using detected.")
-        num_classes = actual_num_classes # Prioritize detected classes from data
+        num_classes = actual_num_classes
 
     logger.info(f"Number of classes (used for model): {num_classes}")
-    logger.info(f"Multimodal: {multimodal_train_loader.dataset_size} training samples, {multimodal_test_loader.dataset_size} test samples")
+    logger.info(f"Multimodal: {len(multimodal_train_loader.dataset)} training samples, {len(multimodal_test_loader.dataset)} test samples")
 
-    multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
-    multimodal_model_hf_subfolder = "multimodal-bnn"
-    model_weights_filename = os.path.join(multimodal_model_hf_subfolder, "pytorch_model.bin")
+    try:
+       
+            multimodal_model_hf_repo_id = "sams-tom/multimodal-auv-bathy-bnn-classifier"
+    
+            # --- CRITICAL FIX: Define the subfolder with forward slashes directly,
+            #                  or ensure any backslashes are replaced immediately. ---
+            # Option 1 (Most direct if you know it's always "multimodal-bnn"):
+            multimodal_model_hf_subfolder = "multimodal-bnn" 
+    
+            # Option 2 (More robust if 'multimodal_model_hf_subfolder' could come from a path operation elsewhere):
+            multimodal_model_hf_subfolder = multimodal_model_hf_subfolder.replace('\\', '/')
 
-    logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}/{model_weights_filename}'...")
-    downloaded_model_weights_path = hf_hub_download(
-            repo_id=multimodal_model_hf_repo_id,
-            filename=model_weights_filename,
-        )
+            # Now, construct the filename using the guaranteed-forward-slash subfolder
+            model_weights_filename = f"{multimodal_model_hf_subfolder}/pytorch_model.bin"
+
+            logging.info(f"DEBUG: repo_id being used: '{multimodal_model_hf_repo_id}'")
+            logging.info(f"DEBUG: filename being used: '{model_weights_filename}'") # This debug print will confirm the path
+            logging.info(f"Attempting to download multimodal model weights from '{multimodal_model_hf_repo_id}' with filename '{model_weights_filename}'...")
+    
+            downloaded_model_weights_path = hf_hub_download(
+                repo_id=multimodal_model_hf_repo_id,
+                filename=model_weights_filename,
+            )
+    except Exception as e:
+        logger.critical(f"FATAL ERROR: Could not load custom Multimodal Model from {downloaded_model_weights_path}. Cannot proceed with training. Error: {e}")
+        sys.exit(1)
     logging.info(f"Multimodal model weights downloaded to: {downloaded_model_weights_path}")
+    try:
+        multimodal_model_instance = load_and_prepare_multimodal_model_custom(
+            downloaded_model_weights_path,
+            devices[0], num_classes=num_classes
+        )
+        logger.info("Custom Multimodal Model loaded successfully with its weights.")
+    except Exception as e:
+        logger.critical(f"FATAL ERROR: Could not load custom Multimodal Model from {downloaded_model_weights_path}. Cannot proceed with training. Error: {e}")
+        sys.exit(1)
 
     # 2. Define optimiser and schedulers
-    # Defining the models so the optimisers know what to do
     logging.info("Defining models...")
-    # NOTE: Your `define_models` currently defines ALL models, but `training_main` only uses `multimodal_model_instance`
-    # passed directly. Ensure `define_models` provides other models if they are needed elsewhere in your training logic.
     models_dict = define_models(device=devices[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
-    # Add the loaded multimodal_model_instance to the dictionary for consistent handling if needed later
     models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
     logging.info("Models moved to devices.")
     torch.cuda.empty_cache()
 
-    # Call the optimisers and schedulers
     logging.info("Setting up criterion, optimizers and schedulers...")
     criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
 
     # 3. Call the main loop with the saved model to retrain
     logger.info("Starting multimodal training with the loaded custom model...")
-    print("Starting multimodal training...") # Use print for immediate visibility
+    print("Starting multimodal training...")
     train_and_evaluate_multimodal_model(
         train_loader=multimodal_train_loader,
         test_loader=multimodal_test_loader,
@@ -166,17 +241,18 @@ def run_auv_training(
         optimizer=optimizers["multimodal_model"],
         lr_scheduler=schedulers["multimodal_model"],
         num_epochs=training_params["num_epochs_multimodal"],
-        device=devices[0], # The primary device for training
+        device=devices[0],
         model_type="multimodal",
         bathy_patch_type=training_params["bathy_patch_base"],
         sss_patch_type=training_params["sss_patch_base"],
-        csv_path=os.path.join(root_dir, "csvs"), # Assumes csvs dir relative to root_dir
+        csv_path=os.path.join(root_dir, "csvs"),
         num_mc=training_params["num_mc"],
         sum_writer=sum_writer
     )
     logger.info("Multimodal training complete.")
     sum_writer.close()
     logger.info("TensorBoard writer closed.")
+
 
 def run_auv_preprocessing(
     raw_optical_images_folder: str,
@@ -280,116 +356,156 @@ def run_auv_preprocessing(
 
 def run_AUV_training_from_scratch(
     const_bnn_prior_parameters: Dict[str, Any],
-    optimizer_params: Dict[str, Dict[str, Any]],
-    scheduler_params: Dict[str, Dict[str, Any]],
-    training_params: Dict[str, Any],
+    # ONLY dynamic parameters from 'args' are passed here
+    lr_multimodal_model: float,
+    num_epochs_multimodal: int,
+    num_mc: int,
+    bathy_patch_base_raw: int, # Raw integer for patch base
+    sss_patch_base_raw: int,   # Raw integer for patch base
+    batch_size_multimodal: int,
+    # General pipeline params
     root_dir: str,
-    devices: List[torch.device], # Corrected type hint to List[torch.device]
-    num_classes: int # Added num_classes to the function signature
-) -> bool: # Added return type hint for success
+    devices: List[torch.device],
+    num_classes: int
+) -> bool:
     """
-    Orchestrates the full multimodal AUV model training pipeline.
+    Orchestrates the full multimodal AUV model training pipeline from scratch.
+    Fixed parameters are defined internally.
 
     Args:
         const_bnn_prior_parameters (Dict[str, Any]): Parameters for Bayesian Neural Network priors.
-        optimizer_params (Dict[str, Dict[str, Any]]): Parameters for optimizers for different models.
-        scheduler_params (Dict[str, Dict[str, Any]]): Parameters for learning rate schedulers for different models.
-        training_params (Dict[str, Any]): General training parameters (epochs, batch sizes, patch types, etc.).
+        lr_multimodal_model (float): Learning rate for the multimodal model.
+        num_epochs_multimodal (int): Number of epochs for multimodal training.
+        num_mc (int): Number of Monte Carlo samples.
+        bathy_patch_base_raw (int): Base patch size for bathy data (e.g., 30).
+        sss_patch_base_raw (int): Base patch size for SSS data (e.g., 30).
+        batch_size_unimodal (int): Batch size for unimodal data loaders.
+        batch_size_multimodal (int): Batch size for multimodal data loaders.
         root_dir (str): Root directory for datasets and outputs.
-        devices (List[torch.device]): List of PyTorch devices to use for training (e.g., [torch.device("cuda:0")]).
+        devices (List[torch.device]): List of PyTorch devices to use for training.
         num_classes (int): The number of classes for the classification task.
-    
+        
     Returns:
         bool: True if training completes successfully, False otherwise.
     """
     try:
-        # Get the root logger and configure it for this run
+        # --- Logging and TensorBoard Setup (unchanged) ---
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.INFO)
-
-        # Clear any existing handlers to prevent duplicate logs if run multiple times
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-
-        # Setup file logging
         log_dir = os.path.join("logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
         os.makedirs(log_dir, exist_ok=True)
         log_path = os.path.join(log_dir, "training.log")
-
         file_handler = logging.FileHandler(log_path)
         file_handler.setLevel(logging.INFO)
         file_formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
         file_handler.setFormatter(file_formatter)
         root_logger.addHandler(file_handler)
-
-        # Setup console logging
-        console_handler = logging.StreamHandler(sys.stdout) # Explicitly use sys.stdout
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(console_formatter)
         root_logger.addHandler(console_handler)
-
-        # Initialize TensorBoard writer
         tb_log_dir = os.path.join("tensorboard_logs", datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
         sum_writer = SummaryWriter(log_dir=tb_log_dir)
         sum_writer.add_text("Init", "TensorBoard logging started", 0)
-
         logging.info("Logging initialized.")
+        logging.info("To view TensorBoard logs, run in terminal: tensorboard --logdir=tensorboard_logs --port=6006")
+        logging.info("Then navigate to: http://localhost:6006 in your browser.")
 
-        # Determine primary device (first in the list, or CPU if list is empty/invalid)
+        # --- Device Setup (unchanged) ---
         if not devices:
             primary_device = torch.device("cpu")
             logging.warning("No devices provided or detected. Defaulting to CPU.")
         else:
             primary_device = devices[0]
-
-        # 1. Environment and Device Setup
         logging.info("Setting up environment and devices...")
         logging.info(f"Using primary device: {str(primary_device)}")
         if len(devices) > 1:
             logging.info(f"Additional devices available: {[str(d) for d in devices[1:]]}")
 
-        # 2. Dataset and DataLoader Preparation
+
+        # --- Define fixed parameters and construct dictionaries INTERNALLY ---
+        # Optimizer LRs
+        _FIXED_LR_IMAGE_MODEL = 1e-5
+        _FIXED_LR_BATHY_MODEL = 0.01
+        _FIXED_LR_SSS_MODEL = 1e-5
+
+        optimizer_params = {
+            "image_model": {"lr": _FIXED_LR_IMAGE_MODEL},
+            "bathy_model": {"lr": _FIXED_LR_BATHY_MODEL},
+            "sss_model": {"lr": _FIXED_LR_SSS_MODEL},
+            "multimodal_model": {"lr": lr_multimodal_model} # This one is dynamic
+        }
+
+        # Scheduler params
+        _FIXED_SCHEDULER_STEP_SIZE_IMAGE = 7
+        _FIXED_SCHEDULER_GAMMA_IMAGE = 0.1
+        _FIXED_SCHEDULER_STEP_SIZE_BATHY = 5
+        _FIXED_SCHEDULER_GAMMA_BATHY = 0.5
+        _FIXED_SCHEDULER_STEP_SIZE_SSS = 7
+        _FIXED_SCHEDULER_GAMMA_SSS = 0.7
+        _FIXED_SCHEDULER_STEP_SIZE_MULTIMODAL = 7
+        _FIXED_SCHEDULER_GAMMA_MULTIMODAL = 0.752
+
+        scheduler_params = {
+            "image_model": {"step_size": _FIXED_SCHEDULER_STEP_SIZE_IMAGE, "gamma": _FIXED_SCHEDULER_GAMMA_IMAGE},
+            "bathy_model": {"step_size": _FIXED_SCHEDULER_STEP_SIZE_BATHY, "gamma": _FIXED_SCHEDULER_GAMMA_BATHY},
+            "sss_model": {"step_size": _FIXED_SCHEDULER_STEP_SIZE_SSS, "gamma": _FIXED_SCHEDULER_GAMMA_SSS},
+            "multimodal_model": {"step_size": _FIXED_SCHEDULER_STEP_SIZE_MULTIMODAL, "gamma": _FIXED_SCHEDULER_GAMMA_MULTIMODAL}
+        }
+
+        # Training params
+        _FIXED_NUM_EPOCHS_UNIMODAL = 30
+        _FIXED_BATHY_PATCH_TYPES = ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"]
+        _FIXED_SSS_PATCH_TYPES = ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"]
+        _FIXED_UNIMODAL_BATCH_SIZE = 1 
+        training_params = {
+            "num_epochs_unimodal": _FIXED_NUM_EPOCHS_UNIMODAL,
+            "num_epochs_multimodal": num_epochs_multimodal, # Dynamic
+            "num_mc": num_mc, # Dynamic
+            "bathy_patch_base": f"patch_{bathy_patch_base_raw}_bathy", # Dynamic (from raw int)
+            "sss_patch_base": f"patch_{sss_patch_base_raw}_sss",     # Dynamic (from raw int)
+            "bathy_patch_types": _FIXED_BATHY_PATCH_TYPES, # Fixed
+            "sss_patch_types": _FIXED_SSS_PATCH_TYPES,     # Fixed
+            "batch_size_unimodal" : _FIXED_UNIMODAL_BATCH_SIZE, # Dynamic
+            "batch_size_multimodal" : batch_size_multimodal # Dynamic
+        }
+        # --- End internal dictionary definition ---
+
+
+        # 2. Dataset and DataLoader Preparation (unchanged in logic)
         logging.info("Preparing datasets and data loaders...")
-        # NOTE: The actual num_classes should be derived from the dataset if possible,
-        # or passed as an argument to the main function if fixed.
-        # Here, we use the one returned by prepare_datasets_and_loaders but also check against the passed `num_classes`.
         _, _, multimodal_train_loader, multimodal_test_loader, actual_num_classes, _ = prepare_datasets_and_loaders(
             root_dir,
             batch_size_unimodal=training_params["batch_size_unimodal"],
             batch_size_multimodal=training_params["batch_size_multimodal"]
         )
 
-        # Harmonize num_classes: prioritize the one from arguments if available, otherwise use detected
-        if num_classes is None or num_classes == 0: # If num_classes not provided or invalid
+        if num_classes is None or num_classes == 0:
             num_classes = actual_num_classes
             logging.info(f"Using num_classes ({num_classes}) derived from dataset.")
         elif num_classes != actual_num_classes:
             logging.warning(f"Configured num_classes ({num_classes}) differs from detected num_classes ({actual_num_classes}) from dataset. Using configured.")
-            # Decide which to use, for training from scratch, it might be better to stick to configured
-            # For retraining, usually dataset detected is preferred. Let's stick with provided for from_scratch.
-            # If you want to use actual_num_classes here, uncomment: num_classes = actual_num_classes
-        
+            
         logging.info(f"Number of classes (used for model): {num_classes}")
 
-        # 3. Model Definition and Initialization
+        # 3. Model Definition and Initialization (unchanged in logic)
         logging.info("Defining models...")
         models_dict = define_models(device=primary_device, num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)
-
-        # Move models to appropriate devices (if DataParallel/Distributed used)
         models_dict = move_models_to_device(models_dict, devices, use_multigpu_for_multimodal=True)
         logging.info("Models defined and moved to devices.")
         torch.cuda.empty_cache()
 
-        # 4. Optimizers and Schedulers
+        # 4. Optimizers and Schedulers (now using the internally defined dictionaries)
         logging.info("Setting up criterion, optimizers and schedulers...")
         criterion, optimizers, schedulers = define_optimizers_and_schedulers(models_dict, optimizer_params, scheduler_params)
 
-        # 5. Run Base Multimodal Training
+        # 5. Run Base Multimodal Training (unchanged in logic)
         logging.info("Starting base multimodal training...")
         print("Starting base multimodal training...") # Use print for immediate visibility
 
-        # Ensure the 'multimodal_model' key exists in optimizers and schedulers
         if "multimodal_model" not in optimizers:
             raise ValueError("Optimizer for 'multimodal_model' not found in optimizers dictionary.")
         if "multimodal_model" not in schedulers:
@@ -406,11 +522,11 @@ def run_AUV_training_from_scratch(
             optimizer=optimizers["multimodal_model"],
             lr_scheduler=schedulers["multimodal_model"],
             num_epochs=training_params["num_epochs_multimodal"],
-            device=primary_device, # Pass the primary device for training loop management
+            device=primary_device,
             model_type="multimodal",
             bathy_patch_type=training_params["bathy_patch_base"],
             sss_patch_type=training_params["sss_patch_base"],
-            csv_path=os.path.join(root_dir, "csvs"), # Ensure this path is correctly formed
+            csv_path=os.path.join(root_dir, "csvs"),
             num_mc=training_params["num_mc"],
             sum_writer=sum_writer
         )

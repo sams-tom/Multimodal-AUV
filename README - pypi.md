@@ -401,16 +401,22 @@ multimodal-auv-retrain --data_dir "home/tommorgan/Documents/data/representative_
 To run this as a script:
 ```
 Bash
-import torch
-from Multimodal_AUV import run_auv_inference
 
-training_root_dir = "/your/data/dir/"
+from Multimodal_AUV import run_auv_training
+import torch
+
+training_root_dir = "D:\Dataset_AUV_IRELAND\representative_sediment_sample"
 num_classes_for_training = 7 # IMPORTANT: Adjust to your actual number of classes
 
-devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
+training_devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
+lr_multimodal = 1e-5 
+epochs_multimodal = 20
+num_mc=5
+bathy_patch_base =30
+sss_patch_base =30
+batch_size_multimodal =1
 
-
- const_bnn_prior_parameters = {
+const_bnn_prior_parameters = {
      "prior_mu": 0.0,
      "prior_sigma": 1.0,
      "posterior_mu_init": 0.0,
@@ -420,42 +426,41 @@ devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.devi
      "moped_delta": 0.1,
  }
 
- optimizer_params = {
+optimizer_params = {
      "image_model": {"lr": 1e-5}, # Example fixed LR for unimodal
      "bathy_model": {"lr": 0.01}, # Example fixed LR for unimodal
      "sss_model": {"lr": 1e-5},   # Example fixed LR for unimodal
-     "multimodal_model": {"lr": args.lr_multimodal}
+     "multimodal_model": {"lr": lr_multimodal}
  }
 
- scheduler_params = {
+scheduler_params = {
      "image_model": {"step_size": 7, "gamma": 0.1},
      "bathy_model": {"step_size": 5, "gamma": 0.5},
      "sss_model": {"step_size": 7, "gamma": 0.7},
      "multimodal_model": {"step_size": 7, "gamma": 0.752} # You might want to make this configurable too
  }
 
- training_params = {
-     "num_epochs_unimodal": 30, # Example fixed value, consider making it an arg
-     "num_epochs_multimodal": args.epochs_multimodal,
-     "num_mc": args.num_mc,
-     "bathy_patch_base": f"patch_{args.bathy_patch_base}_bathy", # Format as string
-     "sss_patch_base": f"patch_{args.sss_patch_base}_sss",     # Format as string
+training_params = {
+     "num_epochs_unimodal": 1, # Example fixed value, consider making it an arg
+     "num_epochs_multimodal": epochs_multimodal,
+     "num_mc": num_mc,
+     "bathy_patch_base": f"patch_{bathy_patch_base}_bathy", # Format as string
+     "sss_patch_base": f"patch_{sss_patch_base}_sss",     # Format as string
      "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
      "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-     "batch_size_unimodal" : args.batch_size_unimodal,
-     "batch_size_multimodal" : args.batch_size_multimodal
+     "batch_size_unimodal" : 1,
+     "batch_size_multimodal" : batch_size_multimodal
  }
- run_auv_training(
+run_auv_training(
                 optimizer_params=optimizer_params,
                 scheduler_params=scheduler_params,
                 training_params=training_params,
                 root_dir=training_root_dir,
                 devices=training_devices,
-                const_bnn_prior_parameters=bnn_prior_parameters,
+                const_bnn_prior_parameters=const_bnn_prior_parameters,
                 num_classes=num_classes_for_training
             )
-print("Retraining function called.")
-```
+print("Retraining function called.")```
 ### Understanding the Arguments:
 
 * **```python -m Multimodal_AUV.Examples.Example_Retraining_model```**: This executes the ```Example_Retraining_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.

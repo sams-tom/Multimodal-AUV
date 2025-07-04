@@ -2,7 +2,7 @@
 # Import the functions you want to expose from functions.py
 from .functions import (
     run_auv_inference,
-    run_auv_training, 
+    run_auv_retraining, 
     run_auv_preprocessing,
     run_AUV_training_from_scratch
 )
@@ -10,7 +10,7 @@ from .functions import (
 __all__ = [
     "run_auv_inference",
     "cli_main",
-    "run_auv_training",
+    "run_auv_retraining",
     "run_auv_preprocessing",
     "run_AUV_training_from_scratch"
 ]

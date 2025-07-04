@@ -4,7 +4,7 @@
 # Use RELATIVE IMPORTS when importing within your own package
 from .functions.functions import ( # Notice the leading dot '.'
     run_auv_inference,
-    run_auv_training,
+    run_auv_retraining,
     run_auv_preprocessing,
     run_AUV_training_from_scratch
 )
@@ -18,7 +18,7 @@ __email__ = "phd01tm@sams.ac.uk"
 # Explicitly list the public API for convenience imports.
 __all__ = [
     "run_auv_inference",
-    "run_auv_training",
+    "run_auv_retraining",
     "run_auv_preprocessing",
     "run_AUV_training_from_scratch"
 ]

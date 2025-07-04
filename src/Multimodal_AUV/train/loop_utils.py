@@ -206,7 +206,11 @@ def train_and_evaluate_multimodal_model(
     logging.info(f"Optimizer: {optimizer.__class__.__name__}")
     logging.info(f"Learning rate scheduler: {lr_scheduler.__class__.__name__}")
     logging.info(f"Model architecture: {multimodal_model.__class__.__name__}")
-
+    try:
+        os.makedirs(csv_path, exist_ok=True)
+        logging.info(f"Ensured CSV output directory exists: {csv_path}")
+    except OSError as e:
+        logging.error(f"Failed to create CSV output directory {csv_path}: {e}")
     for epoch in range(num_epochs): 
         logging.info(f"Epoch {epoch+1}/{num_epochs} - Multimodal model training started.")
         train_loss, train_accuracy =train_multimodal_model(

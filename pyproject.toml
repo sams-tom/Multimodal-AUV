@@ -1,7 +1,7 @@
 [tool.poetry]
 # 1. Basic Package Information
 name = "Multimodal-AUV" # Different to internal functions as replacing "_" with "-"
-version = "0.1.0"     
+version = "0.2.1"     
 description = "Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding" 
 authors = ["Tom Morgan <phd01tm@sams.ac.uk>"]
 license = "MIT"        # Use an SPDX identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0-only"). Make sure you have a LICENSE file in your root.
@@ -37,7 +37,7 @@ classifiers = [
 [tool.poetry.dependencies]
 # 5. Core Runtime Dependencies
 # These are packages your project needs to *run*.
-python = ">=3.9,<4.0" # Your minimum and maximum compatible Python versions
+python = ">=3.9,<3.11" # Your minimum and maximum compatible Python versions
 
 # Core Runtime Dependencies from your requirements.txt
 absl-py = "^2.1.0" # If you directly use absl-py (often via TensorFlow/TensorBoard)
@@ -49,7 +49,7 @@ huggingface_hub = "^0.31.2"
 imageio = "^2.37.0"
 joblib = "^1.4.2"
 matplotlib = "^3.9.2"
-numpy = "^1.26.3"
+numpy = "1.26.4"
 opencv-python = "^4.11.0.86"
 pandas = "^2.2.3"
 pillow = "^11.0.0"
@@ -57,13 +57,12 @@ pyproj = "^3.6.1"
 rasterio = "^1.4.3"
 requests = "^2.32.4"
 scikit-image = "^0.24.0"
-scikit-learn = "^1.6.1"
-scipy = "^1.13.1"
+scikit-learn = "1.6.1"
+scipy = "1.13.1"
 # Add torch here, as it's a critical dependency for Bayesian-Torch and likely your models
 # Check PyTorch's compatibility with your Python and other libraries, and current version
 torch = ">=2.0,<3.0" # Or specify a more exact range based on your current setup.
 tqdm = "^4.67.1"
-triton = "^3.3.1" # Only if you directly depend on it
 pynvml = "^12.0.0"
 utm = "^0.8.1"
 
