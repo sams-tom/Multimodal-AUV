@@ -16,7 +16,8 @@ This project addresses these critical limitations by developing and deploying **
 # Project Structure 🏗️
 ```
 Multimodal_AUV/
-├── Multimodal_AUV/
+│├── src/
+│  ├── Multimodal_AUV/
 │   ├── config/
 │     ├── paths.py
 │     └── __init__.py
@@ -28,7 +29,7 @@ Multimodal_AUV/
 │     ├── geospatial.py
 │     ├── image_processing.py
 │     ├── main_data_preparation.py
-│     ├── sonar_cutting.py
+│     ├── GAVIA_data_preparation.py
 │     ├── utilities.py
 │     └── __init__.py
 │   ├── Examples/
@@ -36,6 +37,9 @@ Multimodal_AUV/
 │     ├── Example_Inference_model.py
 │     ├── Example_Retraining_model.py
 │     ├── Example_training_from_scratch.py
+│     └── __init__.py
+│   ├── functions/
+│     ├── functions.py
 │     └── __init__.py
 │   ├── inference/
 │     ├── inference_data.py
@@ -54,6 +58,7 @@ Multimodal_AUV/
 │   ├── utils/
 │     ├── device.py
 │     └── __init__.py
+│   ├── cli.py
 │   ├── main.py
 │   └── __init__.py
 └── unittests/
@@ -64,7 +69,7 @@ Multimodal_AUV/
       └── __init__.py
 ```
 # Module features 🚀
-Here are some of the key capabilities of this GITHUB
+Here are some of the key capabilities of this module
 * **End-to-End Pipeline**:The repo offers a complete pipeline, allowing you to turn raw georeferenced imagery📸 and sonar tiffs 📡into **valid predictions with quantified uncertainty** by training Bayesian Neural Networks.
 
 * **Model to predict benthic habitat class (Northern Britain)**: Can download and run a model to evaluate bathymetric, sidescan and image "pairs"
@@ -87,7 +92,7 @@ This section guides you through setting up the project, installing dependencies,
    ```
    Bash
    
-   conda create -n multimodal_auv python=3.9 # Or your specific Python version (e.g., 3.10,     3.11)
+   conda create -n multimodal_auv python=3.9 # Must be python 3.9
    ```
    Activate the environment:
    ```
@@ -102,7 +107,7 @@ This section guides you through setting up the project, installing dependencies,
    ```
    Bash
    
-   pip install Multimodal-AUV
+   pip install Multimodal_AUV
    ```
 Important Note on GPU Support:
 In order to train quickly this project utilises PyTorch with CUDA for GPU acceleration. However, the requirements.txt file does not includ PyTorch (torch, torchvision, torchaudio) and NVIDIA CUDA runtime dependencies as these need to be downloaded to fit with your local CUDA toolkit or GPU driver setup. Navigate to this webpage: https://pytorch.org/get-started/locally/ select your requirements and then copy the command and run that locally.
@@ -190,21 +195,15 @@ Bash
 import os
 from Multimodal_AUV import run_auv_preprocessing
 
-raw_optical_images_folder = "/your/data/dir/"
-geotiff_folder = "/your/data/dir//sonar"
-output_folder = "/your/output/folder/processed_auv_data_output"
-exiftool_path = "/usr/bin/exiftool" #for linux Or "C:/exiftool/exiftool.exe" for Windows. Must point at your exiftool.exe download
-
 run_auv_preprocessing(
-    raw_optical_images_folder=raw_optical_images_folder,
-    geotiff_folder=geotiff_folder,
-    output_folder=output_folder,
-    exiftool_path=exiftool_path,
-    window_size_meters=20.0,
-    image_enhancement_method="AverageSubtraction",
-    skip_bathy_combine=False
+    raw_optical_images_folder = "D:/raw dataset/",
+    geotiff_folder = "D:/raw dataset/sonar/",
+    output_folder= "D:/output/",
+    exiftool_path = r'C:exiftool-13.32_64\exiftool-13.32_64\exiftool(-k).exe', # Must point to the actual .exe file or "/usr/bin/exiftool" #for linux
+    window_size_meters = 30.0,
+    image_enhancement_method = "AverageSubtraction"
 )
-print("Preprocessing function called.")
+
 ```
 
 ### Understanding the Arguments:
@@ -324,21 +323,19 @@ To do this in a script run:
 Bash
 from Multimodal_AUV import run_auv_inference
 
-inference_data_dir = "/your/data/dir"
-inference_output_csv = "/output/dir/inference_results.csv"
+
 
 run_auv_inference(
-    data_directory=inference_data_dir,
-    batch_size=4,
-    output_csv=inference_output_csv,
-    num_mc_samples=5,
-    num_classes=7 # IMPORTANT: This must equal 7 to fit the downloaded model
-)
+    data_directory= "D:/dataset/",
+    batch_size= 4, 
+    output_csv ="D:/csvs/inference_results.csv",
+    num_mc_samples = 5,
+    num_classes = 7)
 print("Inference function called. Check results in:", inference_output_csv)
 ````
 ### Understanding the Arguments:
 
-* **```python -m Multimodal_AUV.Examples.Example_Inference_model```**: This executes the ```Example_Inference_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
+* **```python -m multimodal_auv.Examples.Example_Inference_model```**: This executes the ```Example_Inference_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
 * **```--data_dir``` ```"/path/to/your/input_data/dataset"```**:
 
@@ -385,7 +382,7 @@ This example demonstrates how to fine-tune our pre-trained Multimodal AUV Bayesi
 
 * Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
 
-* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```Multimodal_AUV/data/datasets.py``` or Example.data preparataion above (1) for details). The ```--data_dir``` argument should point to the root of this organized dataset.
+* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```multimodal_auv/data/datasets.py``` or Example.data preparataion above (1) for details). The ```--data_dir``` argument should point to the root of this organized dataset.
 
 * The script will automatically download the required pre-trained model weights from the Hugging Face Hub.
 
@@ -402,68 +399,48 @@ To run this as a script:
 ```
 Bash
 
-from Multimodal_AUV import run_auv_training
+from Multimodal_AUV import run_auv_retraining
 import torch
 
-training_root_dir = "D:\Dataset_AUV_IRELAND\representative_sediment_sample"
-num_classes_for_training = 7 # IMPORTANT: Adjust to your actual number of classes
+
+#Parameters you want to control from outside the function:
 
 training_devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
-lr_multimodal = 1e-5 
-epochs_multimodal = 20
-num_mc=5
-bathy_patch_base =30
-sss_patch_base =30
-batch_size_multimodal =1
 
 const_bnn_prior_parameters = {
-     "prior_mu": 0.0,
-     "prior_sigma": 1.0,
-     "posterior_mu_init": 0.0,
-     "posterior_rho_init": -3.0,
-     "type": "Reparameterization",
-     "moped_enable": True,
-     "moped_delta": 0.1,
- }
+    "prior_mu": 0.0,
+    "prior_sigma": 1.0,
+    "posterior_mu_init": 0.0,
+    "posterior_rho_init": -3.0,
+    "type": "Reparameterization",
+    "moped_enable": True,
+    "moped_delta": 0.1,
+}
 
-optimizer_params = {
-     "image_model": {"lr": 1e-5}, # Example fixed LR for unimodal
-     "bathy_model": {"lr": 0.01}, # Example fixed LR for unimodal
-     "sss_model": {"lr": 1e-5},   # Example fixed LR for unimodal
-     "multimodal_model": {"lr": lr_multimodal}
- }
+#Now, call the function with all your desired parameters:
+run_auv_retraining(
+    root_dir='D:/Your/dataset/',
+    devices=training_devices,
+    const_bnn_prior_parameters=const_bnn_prior_parameters,
+    num_classes=7, #Change this to the number of classes in your dataset
 
-scheduler_params = {
-     "image_model": {"step_size": 7, "gamma": 0.1},
-     "bathy_model": {"step_size": 5, "gamma": 0.5},
-     "sss_model": {"step_size": 7, "gamma": 0.7},
-     "multimodal_model": {"step_size": 7, "gamma": 0.752} # You might want to make this configurable too
- }
-
-training_params = {
-     "num_epochs_unimodal": 1, # Example fixed value, consider making it an arg
-     "num_epochs_multimodal": epochs_multimodal,
-     "num_mc": num_mc,
-     "bathy_patch_base": f"patch_{bathy_patch_base}_bathy", # Format as string
-     "sss_patch_base": f"patch_{sss_patch_base}_sss",     # Format as string
-     "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
-     "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-     "batch_size_unimodal" : 1,
-     "batch_size_multimodal" : batch_size_multimodal
- }
-run_auv_training(
-                optimizer_params=optimizer_params,
-                scheduler_params=scheduler_params,
-                training_params=training_params,
-                root_dir=training_root_dir,
-                devices=training_devices,
-                const_bnn_prior_parameters=const_bnn_prior_parameters,
-                num_classes=num_classes_for_training
-            )
-print("Retraining function called.")```
+    #Optimizer/Training Parameters (all optimised for pretrained dataset):
+    lr_multimodal=1e-5,
+    multimodal_weight_decay=1e-5,
+    epochs_multimodal=20,
+    num_mc=5,
+    bathy_patch_base=30,
+    sss_patch_base=30,
+    batch_size_multimodal=1,
+    
+    #Scheduler Parameters:
+    scheduler_multimodal_step_size=7,
+    scheduler_multimodal_gamma=0.752,
+)
+```
 ### Understanding the Arguments:
 
-* **```python -m Multimodal_AUV.Examples.Example_Retraining_model```**: This executes the ```Example_Retraining_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
+* **```python -m multimodal_auv.Examples.Example_Retraining_model```**: This executes the ```Example_Retraining_model.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
 * **```--data_dir``` ```""/path/to/your/input_data/dataset""```**:
 
@@ -521,7 +498,7 @@ This example outlines how to train a new Multimodal AUV Bayesian Neural Network 
 
 * Ensure you have cloned this repository and installed all dependencies as described in the Installation Guide.
 
-* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```Multimodal_AUV/data/datasets.py``` or example.data_preparation above (1) for details). The ```--root_dir``` argument should point to the root of this organized dataset.
+* Your input data (images and sonar files) should be organized as expected by the CustomImageDataset (refer to ```multimodal_auv/data/datasets.py``` or example.data_preparation above (1) for details). The ```--root_dir``` argument should point to the root of this organized dataset.
 
 Training Command Example:
 
@@ -537,61 +514,39 @@ Bash
 import torch
 from Multimodal_AUV import run_AUV_training_from_scratch
 
-training_root_dir = "/your/data/dir/"
-num_classes_for_training = 7 # IMPORTANT: Adjust to your actual number of classes
-
-devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
+training_devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
 
 
- const_bnn_prior_parameters = {
-     "prior_mu": 0.0,
-     "prior_sigma": 1.0,
-     "posterior_mu_init": 0.0,
-     "posterior_rho_init": -3.0,
-     "type": "Reparameterization",
-     "moped_enable": True,
-     "moped_delta": 0.1,
- }
+const_bnn_prior_parameters = {
+        "prior_mu": 0.0,
+        "prior_sigma": 1.0,
+        "posterior_mu_init": 0.0,
+        "posterior_rho_init": -3.0,
+        "type": "Reparameterization",
+        "moped_enable": True,
+        "moped_delta": 0.1,
+    }
 
- optimizer_params = {
-     "image_model": {"lr": 1e-5}, # Example fixed LR for unimodal
-     "bathy_model": {"lr": 0.01}, # Example fixed LR for unimodal
-     "sss_model": {"lr": 1e-5},   # Example fixed LR for unimodal
-     "multimodal_model": {"lr": args.lr_multimodal}
- }
-
- scheduler_params = {
-     "image_model": {"step_size": 7, "gamma": 0.1},
-     "bathy_model": {"step_size": 5, "gamma": 0.5},
-     "sss_model": {"step_size": 7, "gamma": 0.7},
-     "multimodal_model": {"step_size": 7, "gamma": 0.752} # You might want to make this configurable too
- }
-
- training_params = {
-     "num_epochs_unimodal": 30, # Example fixed value, consider making it an arg
-     "num_epochs_multimodal": args.epochs_multimodal,
-     "num_mc": args.num_mc,
-     "bathy_patch_base": f"patch_{args.bathy_patch_base}_bathy", # Format as string
-     "sss_patch_base": f"patch_{args.sss_patch_base}_sss",     # Format as string
-     "bathy_patch_types": ["patch_2_bathy", "patch_5_bathy", "patch_10_bathy", "patch_30_bathy", "patch_50_bathy"],
-     "sss_patch_types": ["patch_2_sss", "patch_5_sss", "patch_10_sss", "patch_30_sss", "patch_50_sss"],
-     "batch_size_unimodal" : args.batch_size_unimodal,
-     "batch_size_multimodal" : args.batch_size_multimodal
- }
+#    Call the refactored training function, passing only the core and dynamic parameters
 run_AUV_training_from_scratch(
-    const_bnn_prior_parameters=const_bnn_prior_parameters,
-    optimizer_params=optimizer_params,
-    scheduler_params=scheduler_params,
-    training_params=training_params,
-    root_dir=training_root_dir,
-    devices=devices,
-    num_classes=num_classes_for_training
+        const_bnn_prior_parameters=const_bnn_prior_parameters,
+        # Dynamic parameters from args (all optimised for pretrained dataset):)
+        lr_multimodal_model=1e-5,
+        num_epochs_multimodal=20,
+        num_mc=5,
+        bathy_patch_base_raw=30.0,
+        sss_patch_base_raw=30.0,
+        batch_size_multimodal=1,
+        # General pipeline parameters
+        root_dir='D:/Your/dataset/',
+        devices=training_devices,
+        num_classes=7
 )
-print("Training from scratch function called.")
+print("Training function called.")
 ```
 ### Understanding the Arguments:
 
-* **```python -m Multimodal_AUV.Examples.Example_training_from_scratch```**: This executes the ```Example_training_from_scratch.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
+* **```python -m multimodal_auv.Examples.Example_training_from_scratch```**: This executes the ```Example_training_from_scratch.py``` script as a Python module, which is the recommended way to run scripts within a package structure.
 
 * **```--root_dir```** "/path/to/your/input_data/dataset":
 
@@ -632,6 +587,97 @@ cd ..
 pytest unittests/
 ```
 
+# Full working python script
+
+```
+
+from Multimodal_AUV import  run_auv_retraining, run_auv_inference, run_auv_preprocessing, run_AUV_training_from_scratch
+import torch
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+#Parameters you want to control from outside the function:
+
+training_devices = [torch.device("cuda:0")] if torch.cuda.is_available() else [torch.device("cpu")]
+
+const_bnn_prior_parameters = {
+    "prior_mu": 0.0,
+    "prior_sigma": 1.0,
+    "posterior_mu_init": 0.0,
+    "posterior_rho_init": -3.0,
+    "type": "Reparameterization",
+    "moped_enable": True,
+    "moped_delta": 0.1,
+}
+
+#Now, call the function with all your desired parameters:
+run_auv_retraining(
+    root_dir='D:/Your/dataset/',
+    devices=training_devices,
+    const_bnn_prior_parameters=const_bnn_prior_parameters,
+    num_classes=7, #Change this to the number of classes in your dataset
+
+    #Optimizer/Training Parameters (all optimised for pretrained dataset):
+    lr_multimodal=1e-5,
+    multimodal_weight_decay=1e-5,
+    epochs_multimodal=20,
+    num_mc=5,
+    bathy_patch_base=30,
+    sss_patch_base=30,
+    batch_size_multimodal=1,
+    
+    #Scheduler Parameters:
+    scheduler_multimodal_step_size=7,
+    scheduler_multimodal_gamma=0.752,
+)
+
+print("Retraining process initiated.")
+
+run_auv_inference(
+    data_directory= "D:/dataset/",
+    batch_size= 4, 
+    output_csv ="D:/csvs/inference_results.csv",
+    num_mc_samples = 5,
+    num_classes = 7)
+
+
+run_auv_preprocessing(
+    raw_optical_images_folder = "D:/raw dataset/",
+    geotiff_folder = "D:/raw dataset/sonar/",
+    output_folder= "D:/output/",
+    exiftool_path = r'C:exiftool-13.32_64\exiftool-13.32_64\exiftool(-k).exe', # Must point to the actual .exe file or "/usr/bin/exiftool" #for linux
+    window_size_meters = 30.0,
+    image_enhancement_method = "AverageSubtraction"
+)
+
+const_bnn_prior_parameters = {
+        "prior_mu": 0.0,
+        "prior_sigma": 1.0,
+        "posterior_mu_init": 0.0,
+        "posterior_rho_init": -3.0,
+        "type": "Reparameterization",
+        "moped_enable": True,
+        "moped_delta": 0.1,
+    }
+
+#    Call the refactored training function, passing only the core and dynamic parameters
+run_AUV_training_from_scratch(
+        const_bnn_prior_parameters=const_bnn_prior_parameters,
+        # Dynamic parameters from args (all optimised for pretrained dataset):)
+        lr_multimodal_model=1e-5,
+        num_epochs_multimodal=20,
+        num_mc=5,
+        bathy_patch_base_raw=30.0,
+        sss_patch_base_raw=30.0,
+        batch_size_multimodal=1,
+        # General pipeline parameters
+        root_dir='D:/Your/dataset/',
+        devices=training_devices,
+        num_classes=7
+)
+print("Training function called.")
+```
 # ⚙️ Configuration ⚙️
 
 All core parameters for data processing, model training, and inference are controlled via **YAML configuration files**. This approach ensures reproducibility 🔁, simplifies experimentation 🧪, and facilitates seamless collaboration 🤝.

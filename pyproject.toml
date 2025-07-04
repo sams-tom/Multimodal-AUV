@@ -1,7 +1,7 @@
 [tool.poetry]
 # 1. Basic Package Information
-name = "Multimodal-AUV" # Different to internal functions as replacing "_" with "-"
-version = "0.2.3"     
+name = "multimodal-auv" 
+version = "0.0.1"     
 description = "Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding" 
 authors = ["Tom Morgan <phd01tm@sams.ac.uk>"]
 license = "MIT"        # Use an SPDX identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0-only"). Make sure you have a LICENSE file in your root.
@@ -19,11 +19,7 @@ packages = [{include = "Multimodal_AUV", from = "src"}]
 
 # 4. Classifiers (Help users find your package on PyPI and categorize it)
 classifiers = [
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9", # Adjust based on your actual supported Python versions
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License", # Matches your chosen license
     "Operating System :: OS Independent",     # If your code runs on Windows, Linux, macOS
     "Development Status :: 4 - Beta",        
@@ -37,7 +33,7 @@ classifiers = [
 [tool.poetry.dependencies]
 # 5. Core Runtime Dependencies
 # These are packages your project needs to *run*.
-python = ">=3.9,<3.11" # Your minimum and maximum compatible Python versions
+python = ">=3.9,<3.10"# Your minimum and maximum compatible Python versions
 
 # Core Runtime Dependencies from your requirements.txt
 absl-py = "^2.1.0" # If you directly use absl-py (often via TensorFlow/TensorBoard)
