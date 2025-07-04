@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import matplotlib
 matplotlib.use('Agg') # This must be called *before* importing matplotlib.pyplot
 import matplotlib.pyplot as plt
-
+from pathlib import Path 
 # Try to set a generic sans-serif font that is commonly available
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Helvetica', 'Verdana']
@@ -57,6 +57,7 @@ def train_multimodal_model(
     """
     # Set the model to training mode
     multimodal_model.train()
+    csv_path = str(Path(csv_path))
 
     # Check if CSV file already exists
     file_exists = os.path.isfile(csv_path)
@@ -228,6 +229,7 @@ def evaluate_multimodal_model(
     """
 
     multimodal_model.train()  # Keep dropout active
+    csv_path = str(Path(csv_path))
 
     file_exists = os.path.isfile(csv_path)
     try: # Outer try

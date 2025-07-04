@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from collections import Counter
 import logging 
 from typing import Tuple
+import sys
  # Split dataset into train and test subsets
 def split_dataset(dataset, test_size=0.2):
     indices = list(range(len(dataset)))
@@ -20,12 +21,15 @@ def prepare_datasets_and_loaders(root_dir: str, batch_size_unimodal: int, batch_
     Prepare training and testing datasets and dataloaders.
     """
     try:
-        def get_num_workers():
-            cpu_count = os.cpu_count() or 1
-            return max(1, cpu_count - 2)
-        num_workers = get_num_workers()
-        prefetch_factor = 2  # Default is 2, can be adjusted if needed
-
+        if sys.platform.startswith('win'):
+            num_workers = 0
+           
+        else:
+            # For Linux/macOS, if num_workers is 0 (default), set it to a reasonable value
+            # based on CPU count, unless explicitly passed as 0.
+                cpu_count = os.cpu_count() or 1
+                num_workers = max(1, cpu_count - 2) # Use a few less than total cores
+                logging.info(f"Using {num_workers} num_workers for DataLoader on non-Windows OS.")
         # Define the dataset
         dataset = CustomImageDataset(root_dir)
 
