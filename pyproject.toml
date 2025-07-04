@@ -1,7 +1,7 @@
 [tool.poetry]
 # 1. Basic Package Information
 name = "Multimodal-AUV" # Different to internal functions as replacing "_" with "-"
-version = "0.2.1"     
+version = "0.2.3"     
 description = "Multimodal AUV Bayesian Neural Networks for Underwater Environmental Understanding" 
 authors = ["Tom Morgan <phd01tm@sams.ac.uk>"]
 license = "MIT"        # Use an SPDX identifier (e.g., "MIT", "Apache-2.0", "GPL-3.0-only"). Make sure you have a LICENSE file in your root.

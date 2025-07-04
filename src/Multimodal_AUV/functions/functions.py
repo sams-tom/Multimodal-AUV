@@ -6,6 +6,8 @@ from typing import Dict, Any, List
 import sys
 from torch.utils.tensorboard import SummaryWriter
 import datetime
+import torch.nn as nn
+from bayesian_torch.layers import LinearReparameterization
 from Multimodal_AUV.Examples.Example_Inference_model import prepare_inference_dataloader, load_and_prepare_multimodal_model
 from Multimodal_AUV.inference.predictors import multimodal_predict_and_save 
 from Multimodal_AUV.data.loaders import prepare_datasets_and_loaders
@@ -219,7 +221,9 @@ def run_auv_retraining(
     except Exception as e:
         logger.critical(f"FATAL ERROR: Could not load custom Multimodal Model from {downloaded_model_weights_path}. Cannot proceed with training. Error: {e}")
         sys.exit(1)
-
+    print(multimodal_model_instance)
+    
+   
     # 2. Define optimiser and schedulers
     logging.info("Defining models...")
     models_dict = define_models(device=devices[0], num_classes=num_classes, const_bnn_prior_parameters=const_bnn_prior_parameters)

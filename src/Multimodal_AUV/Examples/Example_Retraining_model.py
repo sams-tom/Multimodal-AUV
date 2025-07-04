@@ -68,7 +68,21 @@ def load_and_prepare_multimodal_model_custom(model_weights_path: str, device: to
             new_state_dict[name] = v
 
         logging.debug(f"Adjusted state dict keys: {list(new_state_dict.keys())}")
-
+        logging.info(f"DEBUG: num_classes at removal check: {num_classes}") # Placed here for clear context
+        if num_classes != 7: # Assuming 7 is the original number of classes for the pre-trained model
+            logging.warning(f"WARNING: The model was trained with 7 classes, but num_classes is set to {num_classes}. Therefore the final output layer (fc2) is dropped for retraining.")
+            
+            keys_to_remove = []
+            for key in new_state_dict.keys():
+                if key.startswith('fc2.'):
+                    keys_to_remove.append(key)
+            
+            logging.debug(f"DEBUG: new_state_dict keys before fc2 removal: {list(new_state_dict.keys())}")
+            for key in keys_to_remove:
+                del new_state_dict[key]
+                logging.info(f"Removed key '{key}' from loaded state_dict due to expected size mismatch.")
+            logging.debug(f"DEBUG: new_state_dict keys AFTER fc2 removal: {list(new_state_dict.keys())}")
+     
         #Final load the downloaded model
         load_result = multimodal_model.load_state_dict(new_state_dict, strict=False) 
 

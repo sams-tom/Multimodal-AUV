@@ -96,6 +96,16 @@ def load_and_prepare_multimodal_model(downloaded_model_weights_path: str, device
             new_state_dict[name] = v
 
         logging.debug(f"Adjusted state dict keys: {new_state_dict.keys()}")
+        if num_classes != 7:
+            logging.warning(f"WARNING: The model was trained with 7 classes, but num_classes is set to {num_classes}. Therefore the final output layer is dropped for retraining.")
+            keys_to_remove = []
+            for key in new_state_dict.keys():
+                if key.startswith('fc2.'):
+                    keys_to_remove.append(key)
+
+            for key in keys_to_remove:
+                del new_state_dict[key]
+                logging.info(f"Removed key '{key}' from loaded state_dict due to expected size mismatch.")
 
         #Next it loads this model
         ##NOTE: THEY DONT PERFECTLY LINE UP BUT THIS IS FINE

@@ -16,6 +16,7 @@ import matplotlib
 matplotlib.use('Agg') # This must be called *before* importing matplotlib.pyplot
 import matplotlib.pyplot as plt
 from pathlib import Path 
+from torch.nn.functional import softmax
 # Try to set a generic sans-serif font that is commonly available
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans', 'Helvetica', 'Verdana']
@@ -279,7 +280,7 @@ def evaluate_multimodal_model(
                     for _ in range(num_mc):
                         outputs = multimodal_model(inputs, bathy_patch, sss_patch)
                         outputs_mc.append(outputs)
-                        softmax_outputs_mc.append(F.softmax(outputs, dim=1))
+                        softmax_outputs_mc.append(softmax(outputs, dim=1))
                         kl = get_kl_loss(multimodal_model)
                         kl_mc.append(kl)
 

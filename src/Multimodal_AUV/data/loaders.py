@@ -45,10 +45,10 @@ def prepare_datasets_and_loaders(root_dir: str, batch_size_unimodal: int, batch_
         train_dataset, test_dataset = split_dataset(dataset)
 
         # Define dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=batch_size_unimodal, shuffle=True, pin_memory=True, num_workers=num_workers, prefetch_factor=prefetch_factor)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size_unimodal, shuffle=False, pin_memory=True,num_workers=num_workers, prefetch_factor=prefetch_factor)
-        train_loader_multimodal = DataLoader(train_dataset, batch_size=batch_size_multimodal, shuffle=True, pin_memory=True, num_workers=num_workers, prefetch_factor=prefetch_factor)
-        test_loader_multimodal = DataLoader(test_dataset, batch_size=batch_size_multimodal, shuffle=False, pin_memory=True, num_workers=num_workers, prefetch_factor=prefetch_factor)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size_unimodal, shuffle=True, pin_memory=True, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size_unimodal, shuffle=False, pin_memory=True,num_workers=num_workers)
+        train_loader_multimodal = DataLoader(train_dataset, batch_size=batch_size_multimodal, shuffle=True, pin_memory=True, num_workers=num_workers)
+        test_loader_multimodal = DataLoader(test_dataset, batch_size=batch_size_multimodal, shuffle=False, pin_memory=True, num_workers=num_workers)
 
         num_classes = len(dataset.label_encoder.classes_)
         logging.info(f"Number of classes: {num_classes}")
