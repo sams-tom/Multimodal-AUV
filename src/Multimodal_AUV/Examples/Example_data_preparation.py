@@ -193,30 +193,46 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
 
     print(f"Extracting metadata using ExifTool for {len(files)} files...")
     all_raw_metadata = []
+    def get_exif_metadata_windows(exiftool_path, files):
+        """Get metadata using ExifTool on Windows without tempfile."""
+        all_metadata = []
+    
+        # ExifTool can choke on too many files; use chunks
+        chunk_size = 200  # adjust if needed
+        for i in range(0, len(files), chunk_size):
+            chunk = files[i:i+chunk_size]
+            command = [exiftool_path, '-G0', '-j', '-File:Comment'] + chunk
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, check=True, shell=False)
+                metadata = json.loads(result.stdout)
+                all_metadata.extend(metadata)
+            except subprocess.CalledProcessError as e:
+                print("ExifTool failed on Windows chunk.")
+                print("Stderr:", e.stderr)
+                print("Stdout:", e.stdout)
+                raise
+            except json.JSONDecodeError as e:
+                print(" JSON decode failed:", result.stdout)
+                raise
+    
+        return all_metadata
 
+    
     #Try to get the metadata using exiftool in cmd line structure
     try:
         import tempfile
 
+       
         if platform.system() == "Windows":
-            # Use temp file workaround to avoid Windows command-line length limit
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
-                for f in files:
-                    temp_file.write(f"{f}\n")
-                temp_file_path = temp_file.name
-
-            command = [exiftool_command_name, '-G0', '-j', '-File:Comment', f"@{temp_file_path}"]
-            process = subprocess.run(command, capture_output=True, text=True, check=True, shell=True)
-
-            os.remove(temp_file_path)  # Clean up
-
+            all_raw_metadata = get_exif_metadata_windows(exiftool_command_name, files)
+        
         else:
-            # Safe to pass paths directly on Linux/macOS
+            # Linux/macOS: safe to pass files directly
             command = [exiftool_command_name, '-G0', '-j', '-File:Comment']
             command.extend(files)
             process = subprocess.run(command, capture_output=True, text=True, check=True, shell=False)
 
-        all_raw_metadata = json.loads(process.stdout)
+            all_raw_metadata = json.loads(process.stdout)
 
         #Get the number of metadata found
         print(f"ExifTool returned {len(all_raw_metadata)} metadata entries.")
