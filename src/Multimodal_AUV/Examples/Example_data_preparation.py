@@ -196,12 +196,25 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
 
     #Try to get the metadata using exiftool in cmd line structure
     try:
-        command = [exiftool_command_name, '-G0', '-j', '-File:Comment']
-        command.extend(files)
+        import tempfile
 
-       
+        if platform.system() == "Windows":
+            # Use temp file workaround to avoid Windows command-line length limit
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+                for f in files:
+                    temp_file.write(f"{f}\n")
+                temp_file_path = temp_file.name
 
-        process = subprocess.run(command, capture_output=True, text=True, check=True, shell=(platform.system() == "Windows") ) # ONLY shell=True on Windows 
+            command = [exiftool_command_name, '-G0', '-j', '-File:Comment', f"@{temp_file_path}"]
+            process = subprocess.run(command, capture_output=True, text=True, check=True, shell=True)
+
+            os.remove(temp_file_path)  # Clean up
+
+        else:
+            # Safe to pass paths directly on Linux/macOS
+            command = [exiftool_command_name, '-G0', '-j', '-File:Comment']
+            command.extend(files)
+            process = subprocess.run(command, capture_output=True, text=True, check=True, shell=False)
 
         all_raw_metadata = json.loads(process.stdout)
 
