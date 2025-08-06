@@ -199,7 +199,7 @@ def preprocess_optical_images(raw_images_path: str, processed_images_save_folder
         command = [exiftool_command_name, '-G0', '-j', '-File:Comment']
         command.extend(files)
 
-        process = subprocess.run(command, capture_output=True, text=True, check=True)
+        process = subprocess.run(command, capture_output=True, text=True, check=True, shell=(platform.system() == "Windows")  # ONLY shell=True on Windows 
 
         all_raw_metadata = json.loads(process.stdout)
 
